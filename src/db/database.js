@@ -4,10 +4,11 @@ import Dexie from "dexie";
 export const db = new Dexie("MoneyTrailDB");
 
 // Define schema: tables and their indexed fields
-db.version(1).stores({
+db.version(2).stores({
   expenses: "++id, amount, category, date, createdAt",
   budgets: "++id, scope, month",
   categories: "++id, name",
+  balanceEntries: "++id, amount, date, note, createdAt",
 });
 
 // Seed default categories on first run

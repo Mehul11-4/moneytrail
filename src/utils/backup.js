@@ -5,13 +5,15 @@ export async function exportData() {
   const expenses = await db.expenses.toArray();
   const budgets = await db.budgets.toArray();
   const categories = await db.categories.toArray();
+  const balanceEntries = await db.balanceEntries.toArray();
 
   const backup = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     expenses,
     budgets,
     categories,
+    balanceEntries,
   };
 
   const json = JSON.stringify(backup, null, 2);
@@ -33,6 +35,9 @@ function isValidBackup(data) {
   if (!Array.isArray(data.expenses)) return false;
   if (!Array.isArray(data.budgets)) return false;
   if (!Array.isArray(data.categories)) return false;
+  // balanceEntries is optional for backward compatibility with older (v1) backup files
+  if (data.balanceEntries !== undefined && !Array.isArray(data.balanceEntries))
+    return false;
   return true;
 }
 
@@ -58,20 +63,26 @@ export async function importData(file) {
     db.expenses,
     db.budgets,
     db.categories,
+    db.balanceEntries,
     async () => {
       await db.expenses.clear();
       await db.budgets.clear();
       await db.categories.clear();
+      await db.balanceEntries.clear();
 
       // Strip old "id" fields so Dexie re-assigns fresh auto-increment ids
       // (prevents ID collisions if the backup came from a different install)
       const cleanExpenses = data.expenses.map(({ id, ...rest }) => rest);
       const cleanBudgets = data.budgets.map(({ id, ...rest }) => rest);
       const cleanCategories = data.categories.map(({ id, ...rest }) => rest);
+      const cleanBalanceEntries = (data.balanceEntries || []).map(
+        ({ id, ...rest }) => rest,
+      );
 
       await db.expenses.bulkAdd(cleanExpenses);
       await db.budgets.bulkAdd(cleanBudgets);
       await db.categories.bulkAdd(cleanCategories);
+      await db.balanceEntries.bulkAdd(cleanBalanceEntries);
     },
   );
 }

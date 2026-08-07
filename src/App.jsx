@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import AddExpense from "./pages/AddExpense";
 import ExpenseList from "./pages/ExpenseList";
+import Balance from "./pages/Balance";
 import Dashboard from "./pages/Dashboard";
 import Budgets from "./pages/Budgets";
 import Settings from "./pages/Settings";
@@ -17,6 +18,14 @@ function AnimatedRoutes() {
           path="/"
           element={
             <PageWrapper>
+              <Dashboard />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/add"
+          element={
+            <PageWrapper>
               <AddExpense />
             </PageWrapper>
           }
@@ -30,10 +39,10 @@ function AnimatedRoutes() {
           }
         />
         <Route
-          path="/dashboard"
+          path="/balance"
           element={
             <PageWrapper>
-              <Dashboard />
+              <Balance />
             </PageWrapper>
           }
         />
