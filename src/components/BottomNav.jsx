@@ -1,11 +1,18 @@
 import { NavLink } from "react-router-dom";
-import { PlusCircle, List, LayoutDashboard, Wallet2 } from "lucide-react";
+import {
+  PlusCircle,
+  List,
+  LayoutDashboard,
+  Wallet2,
+  Settings,
+} from "lucide-react";
 
 const navItems = [
   { to: "/", icon: PlusCircle, label: "Add" },
   { to: "/expenses", icon: List, label: "Expenses" },
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/budgets", icon: Wallet2, label: "Budgets" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 function BottomNav() {
@@ -16,7 +23,7 @@ function BottomNav() {
           key={to}
           to={to}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 px-3 py-1.5 rounded-control text-xs font-medium transition-colors ${
+            `flex flex-col items-center gap-1 px-2 py-1.5 rounded-control text-[10px] font-medium transition-colors ${
               isActive ? "text-primary" : "text-textSecondary"
             }`
           }

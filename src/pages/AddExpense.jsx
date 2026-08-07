@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Wallet, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import Input from "../components/Input";
@@ -110,8 +111,18 @@ function AddExpense() {
             onChange={(e) => setNote(e.target.value)}
           />
 
-          {error && <p className="text-danger text-sm">{error}</p>}
-
+          <AnimatePresence>
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="text-danger text-sm"
+              >
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
           <Button type="submit" variant="primary">
             {success ? (
               <span className="flex items-center justify-center gap-2">

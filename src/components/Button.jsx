@@ -1,3 +1,5 @@
+import { motion } from "framer-motion";
+
 function Button({
   children,
   onClick,
@@ -6,7 +8,7 @@ function Button({
   className = "",
 }) {
   const base =
-    "font-body font-medium rounded-control px-4 py-2.5 transition-colors duration-150 active:scale-[0.98]";
+    "font-body font-medium rounded-control px-4 py-2.5 transition-colors duration-150";
 
   const variants = {
     primary: "bg-primary text-background hover:bg-emerald-400",
@@ -16,13 +18,15 @@ function Button({
   };
 
   return (
-    <button
+    <motion.button
       type={type}
       onClick={onClick}
+      whileTap={{ scale: 0.97 }}
+      transition={{ duration: 0.1 }}
       className={`${base} ${variants[variant]} ${className}`}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
