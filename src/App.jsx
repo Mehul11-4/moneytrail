@@ -1,11 +1,21 @@
-import { Wallet } from "lucide-react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AddExpense from "./pages/AddExpense";
+import ExpenseList from "./pages/ExpenseList";
+import Dashboard from "./pages/Dashboard";
+import Budgets from "./pages/Budgets";
+import BottomNav from "./components/BottomNav";
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center gap-3">
-      <Wallet className="w-8 h-8 text-emerald-400" />
-      <h1 className="text-3xl font-bold">MoneyTrail</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AddExpense />} />
+        <Route path="/expenses" element={<ExpenseList />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/budgets" element={<Budgets />} />
+      </Routes>
+      <BottomNav />
+    </BrowserRouter>
   );
 }
 
