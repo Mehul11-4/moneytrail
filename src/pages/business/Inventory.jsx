@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Package, AlertTriangle, X, Pencil, Check } from "lucide-react";
+import { Package, AlertTriangle, X, Pencil, Check, Trash2 } from "lucide-react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
@@ -12,11 +12,12 @@ const LOW_STOCK_UNITS = 1;
 const FULL_BAR_UNITS = 5;
 
 function Inventory() {
-  const { products, loading, updateProduct } = useProducts();
+  const { products, loading, updateProduct, deleteProduct } = useProducts();
   const [selected, setSelected] = useState(null); // product being viewed/edited
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({});
   const [error, setError] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -46,6 +47,12 @@ function Inventory() {
   const closeDetail = () => {
     setSelected(null);
     setIsEditing(false);
+    setConfirmingDelete(false);
+  };
+
+  const handleDelete = async () => {
+    await deleteProduct(selected.id);
+    closeDetail();
   };
 
   const handleSave = async () => {
@@ -282,13 +289,49 @@ function Inventory() {
                     { day: "numeric", month: "short", year: "numeric" },
                   )}
                 />
-                <Button
-                  variant="secondary"
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center justify-center gap-1.5"
-                >
-                  <Pencil className="w-4 h-4" /> Edit
-                </Button>
+
+                {confirmingDelete ? (
+                  <div className="flex flex-col gap-2 border border-danger/30 rounded-control p-3">
+                    <p className="text-sm text-danger font-medium">
+                      Delete "{selected.name}" permanently? This won't affect
+                      past sales history, but the product will no longer appear
+                      in Inventory or Sale Voucher.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="danger"
+                        onClick={handleDelete}
+                        className="flex-1"
+                      >
+                        Yes, Delete
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setConfirmingDelete(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1 flex items-center justify-center gap-1.5"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => setConfirmingDelete(true)}
+                      className="flex-1 flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </Card>

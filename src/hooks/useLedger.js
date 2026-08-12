@@ -37,6 +37,8 @@ export function useLedger() {
   }) => {
     let finalProductId = productId;
     let totalAmount;
+    let productName;
+    let unitLabel;
 
     if (isNewProduct) {
       await addProduct({
@@ -52,18 +54,27 @@ export function useLedger() {
       finalProductId = all[0].id;
       totalAmount =
         productDetails.unitPurchasePrice * productDetails.unitsPurchased;
+      productName = productDetails.name;
+      unitLabel = productDetails.unitLabel;
     } else {
       const existing = await db.products.get(productId);
       await restockProduct(productId, unitsPurchased);
       totalAmount = existing.unitPurchasePrice * unitsPurchased;
+      productName = existing.name;
+      unitLabel = existing.unitLabel;
     }
+
+    // Always lead the note with what was actually purchased, so every entry
+    // is self-explanatory in lists — append the user's own note if they gave one
+    const autoDescription = `${productName} — ${unitsPurchased} ${unitLabel}${unitsPurchased > 1 ? "s" : ""}`;
+    const fullNote = note ? `${autoDescription} (${note})` : autoDescription;
 
     await addLedgerEntry({
       type: "kharch",
       subtype: "Purchase Goods",
       amount: totalAmount,
       date,
-      note,
+      note: fullNote,
       productId: finalProductId,
     });
   };
