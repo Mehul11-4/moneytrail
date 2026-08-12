@@ -1,31 +1,29 @@
 import { useState, useRef } from "react";
 import {
+  Settings as SettingsIcon,
   Download,
   Upload,
   AlertTriangle,
-  Settings as SettingsIcon,
+  Store,
 } from "lucide-react";
-import Card from "../components/Card";
-import Button from "../components/Button";
-import { exportData, importData } from "../utils/backup";
-import { useAppMode } from "../context/AppModeContext";
+import Card from "../../components/Card";
+import Button from "../../components/Button";
+import { exportBusinessData, importBusinessData } from "../../utils/backup";
+import { useAppMode } from "../../context/AppModeContext";
 import { RefreshCw } from "lucide-react";
 
-function Settings() {
+function BusinessSettings() {
   const { goToSelector } = useAppMode();
   const fileInputRef = useRef(null);
-  const [status, setStatus] = useState(null); // { type: "success" | "error", message }
+  const [status, setStatus] = useState(null);
   const [confirmingImport, setConfirmingImport] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
 
   const handleExport = async () => {
     try {
-      await exportData();
-      setStatus({
-        type: "success",
-        message: "Backup downloaded successfully.",
-      });
-    } catch (err) {
+      await exportBusinessData();
+      setStatus({ type: "success", message: "CBN CHAI backup downloaded." });
+    } catch {
       setStatus({ type: "error", message: "Export failed. Please try again." });
     }
   };
@@ -40,10 +38,10 @@ function Settings() {
   const handleConfirmImport = async () => {
     if (!pendingFile) return;
     try {
-      await importData(pendingFile);
+      await importBusinessData(pendingFile);
       setStatus({
         type: "success",
-        message: "Data restored successfully. Reloading...",
+        message: "Business data restored. Reloading...",
       });
       setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
@@ -65,31 +63,37 @@ function Settings() {
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-6">
         <SettingsIcon className="w-7 h-7 text-primary" />
-        <h1 className="text-2xl font-heading font-bold">Settings</h1>
+        <h1 className="text-2xl font-heading font-bold">Business Settings</h1>
       </div>
 
+      <Card className="mb-4 flex items-center gap-3">
+        <Store className="w-8 h-8 text-primary" />
+        <div>
+          <p className="font-heading font-bold">CBN CHAI</p>
+          <p className="text-xs text-textSecondary">Sole Proprietorship</p>
+        </div>
+      </Card>
+
       <Card className="mb-4">
-        <p className="text-sm font-medium mb-1">Backup Your Data</p>
+        <p className="text-sm font-medium mb-1">Backup Business Data</p>
         <p className="text-xs text-textSecondary mb-3">
-          Backs up everything — personal expenses, budgets, balance, AND your
-          CBN CHAI business data (inventory, sales, Jama-Kharch). Download
-          regularly, especially before switching phones or clearing browser
-          data.
+          Exports only Inventory, Counter sales, and Jama-Kharch — your personal
+          expense data is not included.
         </p>
         <Button
           variant="primary"
           onClick={handleExport}
           className="w-full flex items-center justify-center gap-2"
         >
-          <Download className="w-4 h-4" /> Export Backup
+          <Download className="w-4 h-4" /> Export CBN CHAI Backup
         </Button>
       </Card>
 
       <Card>
-        <p className="text-sm font-medium mb-1">Restore from Backup</p>
+        <p className="text-sm font-medium mb-1">Restore Business Data</p>
         <p className="text-xs text-textSecondary mb-3">
-          This will replace all current data with the contents of the backup
-          file.
+          Replaces current Inventory, Sales, and Jama-Kharch data. Personal data
+          is untouched.
         </p>
         <input
           ref={fileInputRef}
@@ -97,7 +101,7 @@ function Settings() {
           accept="application/json"
           onChange={handleFileSelect}
           className="hidden"
-          id="import-file"
+          id="import-business-file"
         />
         <Button
           variant="secondary"
@@ -116,7 +120,7 @@ function Settings() {
         </p>
       )}
 
-      <Card className="mb-4 mt-4">
+      <Card className="mb-4">
         <p className="text-sm font-medium mb-1">Switch Mode</p>
         <p className="text-xs text-textSecondary mb-3">
           Go back to the Personal / CBN CHAI selector screen.
@@ -130,20 +134,17 @@ function Settings() {
         </Button>
       </Card>
 
-      {/* Confirm dialog before destructive import */}
-
-      {/* Confirm dialog before destructive import */}
       {confirmingImport && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]">
           <Card className="w-full max-w-sm">
             <div className="flex items-center gap-2 text-warning mb-2">
               <AlertTriangle className="w-5 h-5" />
-              <p className="font-medium">Replace all data?</p>
+              <p className="font-medium">Replace business data?</p>
             </div>
             <p className="text-sm text-textSecondary mb-4">
-              This will permanently delete your current expenses, budgets, and
-              categories, replacing them with the backup file's contents. This
-              cannot be undone.
+              This will permanently replace all Inventory, Sales, and
+              Jama-Kharch entries with the backup file's contents. Personal data
+              will not be affected. This cannot be undone.
             </p>
             <div className="flex gap-2">
               <Button
@@ -168,4 +169,4 @@ function Settings() {
   );
 }
 
-export default Settings;
+export default BusinessSettings;
