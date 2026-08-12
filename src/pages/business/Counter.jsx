@@ -94,7 +94,7 @@ function Counter() {
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-6">
         <ShoppingCart className="w-7 h-7 text-primary" />
-        <h1 className="text-2xl font-heading font-bold">Counter</h1>
+        <h1 className="text-2xl font-heading font-bold">Sale Voucher</h1>
       </div>
 
       <Card>

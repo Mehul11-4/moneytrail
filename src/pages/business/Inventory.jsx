@@ -1,13 +1,22 @@
-import { useMemo } from "react";
-import { Package, AlertTriangle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Package, AlertTriangle, X, Pencil, Check } from "lucide-react";
 import Card from "../../components/Card";
+import Button from "../../components/Button";
+import Input from "../../components/Input";
 import { useProducts } from "../../hooks/useProducts";
 import { PRODUCT_SECTIONS } from "../../utils/productSections";
 
-const LOW_STOCK_THRESHOLD = 5;
+// Low stock = less than 1 full Unit remaining (e.g. less than 1 Packet's worth)
+// Full bar reference = 5 Units worth of stock, scaled per-product
+const LOW_STOCK_UNITS = 1;
+const FULL_BAR_UNITS = 5;
 
 function Inventory() {
-  const { products, loading } = useProducts();
+  const { products, loading, updateProduct } = useProducts();
+  const [selected, setSelected] = useState(null); // product being viewed/edited
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({});
+  const [error, setError] = useState("");
 
   const grouped = useMemo(() => {
     const map = {};
@@ -20,6 +29,54 @@ function Inventory() {
     return map;
   }, [products]);
 
+  const openDetail = (p) => {
+    setSelected(p);
+    setIsEditing(false);
+    setForm({
+      name: p.name,
+      unitLabel: p.unitLabel,
+      qtyPerUnit: p.qtyPerUnit,
+      unitPurchasePrice: p.unitPurchasePrice,
+      mrpPerQty: p.mrpPerQty,
+      stockQty: p.stockQty,
+    });
+    setError("");
+  };
+
+  const closeDetail = () => {
+    setSelected(null);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    setError("");
+    const qty = parseFloat(form.qtyPerUnit);
+    const unitPrice = parseFloat(form.unitPurchasePrice);
+    const mrp = parseFloat(form.mrpPerQty);
+    const stock = parseFloat(form.stockQty);
+
+    if (!form.name.trim()) return setError("Enter a product name.");
+    if (!qty || qty <= 0)
+      return setError("Qty per unit must be greater than 0.");
+    if (!unitPrice || unitPrice <= 0)
+      return setError("Enter a valid purchase price.");
+    if (!mrp || mrp <= 0) return setError("Enter a valid MRP.");
+    if (stock < 0 || isNaN(stock))
+      return setError("Enter a valid stock quantity.");
+
+    await updateProduct(selected.id, {
+      name: form.name.trim(),
+      unitLabel: form.unitLabel.trim(),
+      qtyPerUnit: qty,
+      unitPurchasePrice: unitPrice,
+      mrpPerQty: mrp,
+      stockQty: stock,
+    });
+
+    setIsEditing(false);
+    closeDetail();
+  };
+
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-2">
@@ -27,8 +84,8 @@ function Inventory() {
         <h1 className="text-2xl font-heading font-bold">Inventory</h1>
       </div>
       <p className="text-xs text-textSecondary mb-4">
-        Stock updates automatically from Jama-Kharch purchases and Counter
-        sales.
+        Tap any product for details or to edit. Stock updates automatically from
+        Jama-Kharch and Sale Voucher.
       </p>
 
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
@@ -42,7 +99,6 @@ function Inventory() {
       {PRODUCT_SECTIONS.map((section) => {
         const items = grouped[section] || [];
         if (items.length === 0) return null;
-
         return (
           <div key={section} className="mb-5">
             <p className="text-sm font-heading font-bold text-primary mb-2">
@@ -50,42 +106,203 @@ function Inventory() {
             </p>
             <div className="flex flex-col gap-3">
               {items.map((p) => {
-                const isLow = p.stockQty <= LOW_STOCK_THRESHOLD;
+                const isLow = p.stockQty <= p.qtyPerUnit * LOW_STOCK_UNITS;
+                // Stock level as a fraction of "5 full Units" worth, scaled to THIS product's Unit size
+                const fullBarQty = p.qtyPerUnit * FULL_BAR_UNITS;
+                const stockPct = Math.min(100, (p.stockQty / fullBarQty) * 100);
+                const lineColor = isLow
+                  ? "bg-danger"
+                  : stockPct < 50
+                    ? "bg-warning"
+                    : "bg-success";
+
                 return (
-                  <Card key={p.id} className={isLow ? "border-warning/40" : ""}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-medium">{p.name}</p>
+                  <button
+                    key={p.id}
+                    onClick={() => openDetail(p)}
+                    className="text-left"
+                  >
+                    <Card className={isLow ? "border-warning/40" : ""}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-xs text-textSecondary">
+                            1 {p.unitLabel} = {p.qtyPerUnit} pcs · Cost ₹
+                            {p.pricePerQty.toFixed(2)}/pc · MRP ₹
+                            {p.mrpPerQty.toFixed(2)}/pc
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-textSecondary">
-                          1 {p.unitLabel} = {p.qtyPerUnit} pcs · Cost ₹
-                          {p.pricePerQty.toFixed(2)}/pc · MRP ₹
-                          {p.mrpPerQty.toFixed(2)}/pc
+                          Stock remaining
+                        </p>
+                        <p
+                          className={`font-heading font-bold ${isLow ? "text-warning" : "text-textPrimary"}`}
+                        >
+                          {p.stockQty} pcs
                         </p>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-textSecondary">
-                        Stock remaining
-                      </p>
-                      <p
-                        className={`font-heading font-bold ${isLow ? "text-warning" : "text-textPrimary"}`}
-                      >
-                        {p.stockQty} pcs
-                      </p>
-                    </div>
-                    {isLow && (
-                      <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-warning">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Low stock — restock via Jama-Kharch
+
+                      {/* Animated stock level line */}
+                      <div className="w-full bg-background rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full ${lineColor} transition-all duration-700 ease-out`}
+                          style={{ width: `${stockPct}%` }}
+                        />
                       </div>
-                    )}
-                  </Card>
+
+                      {isLow && (
+                        <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-warning">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Low stock — restock via Jama-Kharch
+                        </div>
+                      )}
+                    </Card>
+                  </button>
                 );
               })}
             </div>
           </div>
         );
       })}
+
+      {/* Detail / Edit Modal */}
+      {selected && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]">
+          <Card className="w-full max-w-sm max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <p className="font-heading font-bold text-lg">
+                {isEditing ? "Edit Product" : "Product Details"}
+              </p>
+              <button onClick={closeDetail} className="text-textSecondary">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isEditing ? (
+              <div className="flex flex-col gap-3">
+                <Input
+                  label="Product Name"
+                  name="name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+                <Input
+                  label="Unit Label"
+                  name="unitLabel"
+                  value={form.unitLabel}
+                  onChange={(e) =>
+                    setForm({ ...form, unitLabel: e.target.value })
+                  }
+                />
+                <Input
+                  label="Qty per Unit"
+                  name="qtyPerUnit"
+                  type="number"
+                  value={form.qtyPerUnit}
+                  onChange={(e) =>
+                    setForm({ ...form, qtyPerUnit: e.target.value })
+                  }
+                />
+                <Input
+                  label="Purchase Price per Unit (₹)"
+                  name="unitPurchasePrice"
+                  type="number"
+                  value={form.unitPurchasePrice}
+                  onChange={(e) =>
+                    setForm({ ...form, unitPurchasePrice: e.target.value })
+                  }
+                />
+                <Input
+                  label="MRP per Piece (₹)"
+                  name="mrpPerQty"
+                  type="number"
+                  value={form.mrpPerQty}
+                  onChange={(e) =>
+                    setForm({ ...form, mrpPerQty: e.target.value })
+                  }
+                />
+                <Input
+                  label="Current Stock (pcs)"
+                  name="stockQty"
+                  type="number"
+                  value={form.stockQty}
+                  onChange={(e) =>
+                    setForm({ ...form, stockQty: e.target.value })
+                  }
+                />
+                {error && <p className="text-danger text-sm">{error}</p>}
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={handleSave}
+                    className="flex-1 flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Save
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setIsEditing(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <DetailRow label="Section" value={selected.section} />
+                <DetailRow label="Name" value={selected.name} />
+                <DetailRow
+                  label="Unit"
+                  value={`1 ${selected.unitLabel} = ${selected.qtyPerUnit} pcs`}
+                />
+                <DetailRow
+                  label="Purchase Price per Unit"
+                  value={`₹${selected.unitPurchasePrice.toFixed(2)}`}
+                />
+                <DetailRow
+                  label="Cost per Piece"
+                  value={`₹${selected.pricePerQty.toFixed(2)}`}
+                />
+                <DetailRow
+                  label="MRP per Piece"
+                  value={`₹${selected.mrpPerQty.toFixed(2)}`}
+                />
+                <DetailRow
+                  label="Current Stock"
+                  value={`${selected.stockQty} pcs`}
+                />
+                <DetailRow
+                  label="Added On"
+                  value={new Date(selected.createdAt).toLocaleDateString(
+                    "en-IN",
+                    { day: "numeric", month: "short", year: "numeric" },
+                  )}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center justify-center gap-1.5"
+                >
+                  <Pencil className="w-4 h-4" /> Edit
+                </Button>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex justify-between items-center border-b border-white/5 pb-2">
+      <p className="text-xs text-textSecondary">{label}</p>
+      <p className="text-sm font-medium">{value}</p>
     </div>
   );
 }

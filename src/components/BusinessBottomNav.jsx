@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/business/counter", icon: ShoppingCart, label: "Counter" },
+  { to: "/business/counter", icon: ShoppingCart, label: "Sale Voucher" },
   { to: "/business/inventory", icon: Package, label: "Inventory" },
   { to: "/business/jama-kharch", icon: BookText, label: "Jama-Kharch" },
   { to: "/business/profit-loss", icon: TrendingUp, label: "P&L" },

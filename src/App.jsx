@@ -19,6 +19,7 @@ import BottomNav from "./components/BottomNav";
 import Counter from "./pages/business/Counter";
 import Inventory from "./pages/business/Inventory";
 import JamaKharch from "./pages/business/JamaKharch";
+import LedgerCategory from "./pages/business/LedgerCategory";
 import ProfitLoss from "./pages/business/ProfitLoss";
 import BusinessSettings from "./pages/business/BusinessSettings";
 import BusinessBottomNav from "./components/BusinessBottomNav";
@@ -119,6 +120,14 @@ function AnimatedRoutes() {
           }
         />
         <Route
+          path="/business/jama-kharch/:slug"
+          element={
+            <PageWrapper>
+              <LedgerCategory />
+            </PageWrapper>
+          }
+        />
+        <Route
           path="/business/profit-loss"
           element={
             <PageWrapper>
@@ -151,6 +160,7 @@ function AnimatedRoutes() {
 
 function AppShell() {
   const { mode } = useAppMode();
+  const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
@@ -163,6 +173,10 @@ function AppShell() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
+          {/* Redirect to the right home screen the moment mode is picked, if we're still at "/" */}
+          {mode === "business" && location.pathname === "/" && (
+            <Navigate to="/business/counter" replace />
+          )}
           <AnimatedRoutes />
           {mode === "personal" ? <BottomNav /> : <BusinessBottomNav />}
         </motion.div>

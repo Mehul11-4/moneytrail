@@ -2,10 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: 18px;
+}
+
 body {
   font-family: "Inter", sans-serif;
   background-color: #0a0a0f;
+  color: #ffffff;
 }
+
+/* Improve readability for small Tailwind text */
+.text-xs {
+  font-size: 0.9rem !important;
+}
+
+.text-sm {
+  font-size: 1.05rem !important;
+}
+
+.text-\[10px\] {
+  font-size: 0.85rem !important;
+}
+
+.text-\[9px\] {
+  font-size: 0.8rem !important;
+}
+
+/* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

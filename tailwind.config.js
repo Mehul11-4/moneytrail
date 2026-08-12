@@ -18,6 +18,9 @@ export default {
         heading: ["Space Grotesk", "sans-serif"],
         body: ["Inter", "sans-serif"],
       },
+      fontSize: {
+        base: "17px",
+      },
       borderRadius: {
         card: "12px",
         control: "8px",
