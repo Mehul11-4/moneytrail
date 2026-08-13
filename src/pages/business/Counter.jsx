@@ -37,7 +37,7 @@ function Counter() {
   const total = useMemo(() => {
     const q = parseFloat(qty);
     if (!selectedProduct || !q || q <= 0) return 0;
-    return q * selectedProduct.mrpPerQty;
+    return q * selectedProduct.mrp_per_qty;
   }, [selectedProduct, qty]);
 
   const resetForm = () => {
@@ -57,9 +57,9 @@ function Counter() {
 
     if (!selectedProduct) return setError("Select a product.");
     if (!q || q <= 0) return setError("Enter a valid quantity.");
-    if (q > selectedProduct.stockQty) {
+    if (q > selectedProduct.stock_qty) {
       return setError(
-        `Only ${selectedProduct.stockQty} pcs in stock — cannot sell ${q}.`,
+        `Only ${selectedProduct.stock_qty} pcs in stock — cannot sell ${q}.`,
       );
     }
     if (paymentMode === "Udhaar" && !customerName.trim()) {
@@ -75,9 +75,9 @@ function Counter() {
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       qtySold: q,
-      pricePerQtyAtSale: selectedProduct.pricePerQty,
-      mrpAtSale: selectedProduct.mrpPerQty,
-      total: q * selectedProduct.mrpPerQty,
+      pricePerQtyAtSale: selectedProduct.price_per_qty,
+      mrpAtSale: selectedProduct.mrp_per_qty,
+      total: q * selectedProduct.mrp_per_qty,
       paymentMode,
       customerName: paymentMode === "Udhaar" ? customerName.trim() : null,
       customerPhone: paymentMode === "Udhaar" ? customerPhone.trim() : null,
@@ -111,7 +111,7 @@ function Counter() {
               <option value="">Select a product</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.section} — {p.name} ({p.stockQty} pcs left)
+                  {p.section} — {p.name} ({p.stock_qty} pcs left)
                 </option>
               ))}
             </select>
@@ -128,8 +128,8 @@ function Counter() {
 
           {selectedProduct && (
             <p className="text-xs text-textSecondary">
-              MRP: ₹{selectedProduct.mrpPerQty.toFixed(2)}/pc · In stock:{" "}
-              {selectedProduct.stockQty} pcs
+              MRP: ₹{selectedProduct.mrp_per_qty.toFixed(2)}/pc · In stock:{" "}
+              {selectedProduct.stock_qty} pcs
             </p>
           )}
 

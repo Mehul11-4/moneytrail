@@ -7,13 +7,16 @@ import {
 } from "lucide-react";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { exportData, importData } from "../utils/backup";
+import { exportData, importData, importLegacyData } from "../utils/backup";
 import { useAppMode } from "../context/AppModeContext";
-import { RefreshCw } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { RefreshCw, LogOut } from "lucide-react";
 
 function Settings() {
   const { goToSelector } = useAppMode();
+  const { signOut, user } = useAuth();
   const fileInputRef = useRef(null);
+  const legacyFileInputRef = useRef(null);
   const [status, setStatus] = useState(null); // { type: "success" | "error", message }
   const [confirmingImport, setConfirmingImport] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -116,6 +119,49 @@ function Settings() {
         </p>
       )}
 
+      <Card className="mb-4">
+        <p className="text-sm font-medium mb-1">
+          Import Old Phone Backup (One-Time)
+        </p>
+        <p className="text-xs text-textSecondary mb-3">
+          Use this ONLY for a backup file exported from the old (pre-login)
+          version of the app on your phone. This converts it to the new format
+          automatically.
+        </p>
+        <input
+          ref={legacyFileInputRef}
+          type="file"
+          accept="application/json"
+          onChange={async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+              await importLegacyData(file);
+              setStatus({
+                type: "success",
+                message: "Old data imported successfully. Reloading...",
+              });
+              setTimeout(() => window.location.reload(), 1200);
+            } catch (err) {
+              setStatus({
+                type: "error",
+                message: err.message || "Legacy import failed.",
+              });
+            }
+            if (legacyFileInputRef.current)
+              legacyFileInputRef.current.value = "";
+          }}
+          className="hidden"
+        />
+        <Button
+          variant="secondary"
+          onClick={() => legacyFileInputRef.current?.click()}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <Upload className="w-4 h-4" /> Choose Old Phone Backup File
+        </Button>
+      </Card>
+
       <Card className="mb-4 mt-4">
         <p className="text-sm font-medium mb-1">Switch Mode</p>
         <p className="text-xs text-textSecondary mb-3">
@@ -127,6 +173,20 @@ function Settings() {
           className="w-full flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Switch Mode
+        </Button>
+      </Card>
+
+      <Card className="mb-4">
+        <p className="text-sm font-medium mb-1">Account</p>
+        <p className="text-xs text-textSecondary mb-3">
+          Logged in as {user?.email}
+        </p>
+        <Button
+          variant="danger"
+          onClick={signOut}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" /> Log Out
         </Button>
       </Card>
 

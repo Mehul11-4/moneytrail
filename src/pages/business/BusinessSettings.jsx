@@ -10,10 +10,11 @@ import Card from "../../components/Card";
 import Button from "../../components/Button";
 import { exportBusinessData, importBusinessData } from "../../utils/backup";
 import { useAppMode } from "../../context/AppModeContext";
-import { RefreshCw } from "lucide-react";
-
+import { useAuth } from "../../context/AuthContext";
+import { RefreshCw, LogOut } from "lucide-react";
 function BusinessSettings() {
   const { goToSelector } = useAppMode();
+  const { signOut, user } = useAuth();
   const fileInputRef = useRef(null);
   const [status, setStatus] = useState(null);
   const [confirmingImport, setConfirmingImport] = useState(false);
@@ -131,6 +132,20 @@ function BusinessSettings() {
           className="w-full flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Switch Mode
+        </Button>
+      </Card>
+
+      <Card className="mb-4">
+        <p className="text-sm font-medium mb-1">Account</p>
+        <p className="text-xs text-textSecondary mb-3">
+          Logged in as {user?.email}
+        </p>
+        <Button
+          variant="danger"
+          onClick={signOut}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" /> Log Out
         </Button>
       </Card>
 

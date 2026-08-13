@@ -1,16 +1,27 @@
 import { useState, useEffect, useCallback } from "react";
-import { db } from "../db/database";
+import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 export function useProducts() {
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadProducts = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
-    const all = await db.products.orderBy("createdAt").reverse().toArray();
-    setProducts(all);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase load products error:", error);
+    } else {
+      setProducts(data);
+    }
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadProducts();
@@ -18,52 +29,106 @@ export function useProducts() {
 
   const addProduct = async (product) => {
     const pricePerQty = product.unitPurchasePrice / product.qtyPerUnit;
-    await db.products.add({
-      ...product,
+    const { error } = await supabase.from("products").insert({
+      user_id: user.id,
       section: product.section || "Other",
-      pricePerQty,
-      stockQty: product.qtyPerUnit * product.unitsPurchased,
-      createdAt: new Date().toISOString(),
+      name: product.name,
+      unit_label: product.unitLabel,
+      qty_per_unit: product.qtyPerUnit,
+      unit_purchase_price: product.unitPurchasePrice,
+      price_per_qty: pricePerQty,
+      mrp_per_qty: product.mrpPerQty,
+      stock_qty: product.qtyPerUnit * product.unitsPurchased,
     });
-    await loadProducts();
+    if (error) {
+      console.error("Supabase add product error:", error);
+    } else {
+      await loadProducts();
+    }
   };
 
   const updateProduct = async (id, updates) => {
-    // If purchase price or qtyPerUnit changes, recalculate pricePerQty
-    const existing = await db.products.get(id);
-    const merged = { ...existing, ...updates };
-    const pricePerQty = merged.unitPurchasePrice / merged.qtyPerUnit;
-    await db.products.update(id, { ...updates, pricePerQty });
-    await loadProducts();
+    const { data: existing } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .single();
+    const merged = { ...existing, ...mapUpdatesToDb(updates) };
+    const pricePerQty = merged.unit_purchase_price / merged.qty_per_unit;
+
+    const { error } = await supabase
+      .from("products")
+      .update({ ...mapUpdatesToDb(updates), price_per_qty: pricePerQty })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Supabase update product error:", error);
+    } else {
+      await loadProducts();
+    }
   };
 
   const deleteProduct = async (id) => {
-    await db.products.delete(id);
-    await loadProducts();
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) {
+      console.error("Supabase delete product error:", error);
+    } else {
+      await loadProducts();
+    }
   };
 
-  // Adds more stock to an existing product (restocking)
   const restockProduct = async (id, unitsAdded) => {
-    const existing = await db.products.get(id);
-    const addedQty = unitsAdded * existing.qtyPerUnit;
-    await db.products.update(id, { stockQty: existing.stockQty + addedQty });
-    await loadProducts();
+    const { data: existing } = await supabase
+      .from("products")
+      .select("stock_qty, qty_per_unit")
+      .eq("id", id)
+      .single();
+    const addedQty = unitsAdded * existing.qty_per_unit;
+    const { error } = await supabase
+      .from("products")
+      .update({ stock_qty: existing.stock_qty + addedQty })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase restock error:", error);
+    } else {
+      await loadProducts();
+    }
   };
 
-  // Adds back a raw Qty amount (not Units) — used when a sale is deleted/undone
-  const restoreStockQty = async (id, qty) => {
-    const existing = await db.products.get(id);
-    if (!existing) return; // product may have been deleted separately
-    await db.products.update(id, { stockQty: existing.stockQty + qty });
-    await loadProducts();
-  };
-
-  // Called by Counter (Stage 3) when a sale happens
   const deductStock = async (id, qtySold) => {
-    const existing = await db.products.get(id);
-    const newStock = Math.max(0, existing.stockQty - qtySold);
-    await db.products.update(id, { stockQty: newStock });
-    await loadProducts();
+    const { data: existing } = await supabase
+      .from("products")
+      .select("stock_qty")
+      .eq("id", id)
+      .single();
+    const newStock = Math.max(0, existing.stock_qty - qtySold);
+    const { error } = await supabase
+      .from("products")
+      .update({ stock_qty: newStock })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase deduct stock error:", error);
+    } else {
+      await loadProducts();
+    }
+  };
+
+  const restoreStockQty = async (id, qty) => {
+    const { data: existing } = await supabase
+      .from("products")
+      .select("stock_qty")
+      .eq("id", id)
+      .single();
+    if (!existing) return;
+    const { error } = await supabase
+      .from("products")
+      .update({ stock_qty: existing.stock_qty + qty })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase restore stock error:", error);
+    } else {
+      await loadProducts();
+    }
   };
 
   return {
@@ -76,4 +141,17 @@ export function useProducts() {
     deductStock,
     restoreStockQty,
   };
+}
+
+// Inventory.jsx edit form sends camelCase field names — convert to snake_case for Supabase
+function mapUpdatesToDb(updates) {
+  const map = {};
+  if (updates.name !== undefined) map.name = updates.name;
+  if (updates.unitLabel !== undefined) map.unit_label = updates.unitLabel;
+  if (updates.qtyPerUnit !== undefined) map.qty_per_unit = updates.qtyPerUnit;
+  if (updates.unitPurchasePrice !== undefined)
+    map.unit_purchase_price = updates.unitPurchasePrice;
+  if (updates.mrpPerQty !== undefined) map.mrp_per_qty = updates.mrpPerQty;
+  if (updates.stockQty !== undefined) map.stock_qty = updates.stockQty;
+  return map;
 }

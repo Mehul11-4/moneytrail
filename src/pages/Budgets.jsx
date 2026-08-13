@@ -100,7 +100,7 @@ function Budgets() {
         )}
         {budgets.map((b) => {
           const spent = spentByScope[b.scope] || 0;
-          const status = getStatus(spent, b.monthlyLimit);
+          const status = getStatus(spent, b.monthly_limit);
           const barColor =
             status.color === "danger"
               ? "bg-danger"
@@ -122,7 +122,7 @@ function Budgets() {
                     {b.scope === "overall" ? "Overall" : b.scope}
                   </p>
                   <p className="text-xs text-textSecondary">
-                    ₹{spent.toFixed(2)} of ₹{b.monthlyLimit.toFixed(2)}
+                    ₹{spent.toFixed(2)} of ₹{b.monthly_limit.toFixed(2)}
                   </p>
                 </div>
                 <button

@@ -35,15 +35,14 @@ function Inventory() {
     setIsEditing(false);
     setForm({
       name: p.name,
-      unitLabel: p.unitLabel,
-      qtyPerUnit: p.qtyPerUnit,
-      unitPurchasePrice: p.unitPurchasePrice,
-      mrpPerQty: p.mrpPerQty,
-      stockQty: p.stockQty,
+      unitLabel: p.unit_label,
+      qtyPerUnit: p.qty_per_unit,
+      unitPurchasePrice: p.unit_purchase_price,
+      mrpPerQty: p.mrp_per_qty,
+      stockQty: p.stock_qty,
     });
     setError("");
   };
-
   const closeDetail = () => {
     setSelected(null);
     setIsEditing(false);
@@ -113,10 +112,13 @@ function Inventory() {
             </p>
             <div className="flex flex-col gap-3">
               {items.map((p) => {
-                const isLow = p.stockQty <= p.qtyPerUnit * LOW_STOCK_UNITS;
+                const isLow = p.stock_qty <= p.qty_per_unit * LOW_STOCK_UNITS;
                 // Stock level as a fraction of "5 full Units" worth, scaled to THIS product's Unit size
-                const fullBarQty = p.qtyPerUnit * FULL_BAR_UNITS;
-                const stockPct = Math.min(100, (p.stockQty / fullBarQty) * 100);
+                const fullBarQty = p.qty_per_unit * FULL_BAR_UNITS;
+                const stockPct = Math.min(
+                  100,
+                  (p.stock_qty / fullBarQty) * 100,
+                );
                 const lineColor = isLow
                   ? "bg-danger"
                   : stockPct < 50
@@ -134,9 +136,9 @@ function Inventory() {
                         <div>
                           <p className="font-medium">{p.name}</p>
                           <p className="text-xs text-textSecondary">
-                            1 {p.unitLabel} = {p.qtyPerUnit} pcs · Cost ₹
-                            {p.pricePerQty.toFixed(2)}/pc · MRP ₹
-                            {p.mrpPerQty.toFixed(2)}/pc
+                            1 {p.unit_label} = {p.qty_per_unit} pcs · Cost ₹
+                            {p.price_per_qty.toFixed(2)}/pc · MRP ₹
+                            {p.mrp_per_qty.toFixed(2)}/pc
                           </p>
                         </div>
                       </div>
@@ -148,7 +150,7 @@ function Inventory() {
                         <p
                           className={`font-heading font-bold ${isLow ? "text-warning" : "text-textPrimary"}`}
                         >
-                          {p.stockQty} pcs
+                          {p.stock_qty} pcs
                         </p>
                       </div>
 
@@ -264,27 +266,27 @@ function Inventory() {
                 <DetailRow label="Name" value={selected.name} />
                 <DetailRow
                   label="Unit"
-                  value={`1 ${selected.unitLabel} = ${selected.qtyPerUnit} pcs`}
+                  value={`1 ${selected.unit_label} = ${selected.qty_per_unit} pcs`}
                 />
                 <DetailRow
                   label="Purchase Price per Unit"
-                  value={`₹${selected.unitPurchasePrice.toFixed(2)}`}
+                  value={`₹${selected.unit_purchase_price.toFixed(2)}`}
                 />
                 <DetailRow
                   label="Cost per Piece"
-                  value={`₹${selected.pricePerQty.toFixed(2)}`}
+                  value={`₹${selected.price_per_qty.toFixed(2)}`}
                 />
                 <DetailRow
                   label="MRP per Piece"
-                  value={`₹${selected.mrpPerQty.toFixed(2)}`}
+                  value={`₹${selected.mrp_per_qty.toFixed(2)}`}
                 />
                 <DetailRow
                   label="Current Stock"
-                  value={`${selected.stockQty} pcs`}
+                  value={`${selected.stock_qty} pcs`}
                 />
                 <DetailRow
                   label="Added On"
-                  value={new Date(selected.createdAt).toLocaleDateString(
+                  value={new Date(selected.created_at).toLocaleDateString(
                     "en-IN",
                     { day: "numeric", month: "short", year: "numeric" },
                   )}

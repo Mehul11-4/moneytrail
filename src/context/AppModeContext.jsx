@@ -1,17 +1,11 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
 
 const AppModeContext = createContext();
 
 export function AppModeProvider({ children }) {
-  const [mode, setMode] = useState(() => {
-    return localStorage.getItem("moneytrail_mode") || null;
-  });
-
-  useEffect(() => {
-    if (mode) {
-      localStorage.setItem("moneytrail_mode", mode);
-    }
-  }, [mode]);
+  // Always start at the selector screen on every fresh login/session —
+  // mode is no longer remembered across logins (by design)
+  const [mode, setMode] = useState(null);
 
   const toggleMode = () => {
     setMode((prev) => (prev === "personal" ? "business" : "personal"));
@@ -19,9 +13,7 @@ export function AppModeProvider({ children }) {
 
   const goToSelector = () => {
     setMode(null);
-    localStorage.removeItem("moneytrail_mode");
   };
-
   return (
     <AppModeContext.Provider
       value={{ mode, setMode, toggleMode, goToSelector }}

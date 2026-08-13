@@ -118,60 +118,68 @@ function LedgerCategory() {
     setError("");
     if (!date) return setError("Select a date.");
 
-    if (slug === "purchase-goods") {
-      const units = parseFloat(unitsPurchased);
-      if (!units || units <= 0) return setError("Enter units purchased.");
+    try {
+      if (slug === "purchase-goods") {
+        const units = parseFloat(unitsPurchased);
+        if (!units || units <= 0)
+          return setError("Enter how many units purchased.");
 
-      if (purchaseMode === "existing") {
-        if (!selectedProductId) return setError("Select a product.");
-        await addPurchaseGoods({
-          productId: parseInt(selectedProductId),
-          isNewProduct: false,
-          unitsPurchased: units,
-          date,
-          note: note.trim().slice(0, 200),
-        });
-      } else {
-        const qty = parseFloat(newQtyPerUnit);
-        const unitPrice = parseFloat(newUnitPrice);
-        const mrp = parseFloat(newMrp);
-        if (!newSection) return setError("Select a section.");
-        if (!newName.trim()) return setError("Enter product name.");
-        if (!newUnitLabel.trim()) return setError("Enter unit label.");
-        if (!qty || qty <= 0) return setError("Enter valid qty per unit.");
-        if (!unitPrice || unitPrice <= 0)
-          return setError("Enter valid purchase price.");
-        if (!mrp || mrp <= 0) return setError("Enter valid MRP.");
-        await addPurchaseGoods({
-          isNewProduct: true,
-          productDetails: {
-            section: newSection,
-            name: newName.trim(),
-            unitLabel: newUnitLabel.trim(),
-            qtyPerUnit: qty,
-            unitPurchasePrice: unitPrice,
+        if (purchaseMode === "existing") {
+          if (!selectedProductId) return setError("Select a product.");
+          await addPurchaseGoods({
+            productId: parseInt(selectedProductId),
+            isNewProduct: false,
             unitsPurchased: units,
-            mrpPerQty: mrp,
-          },
-          unitsPurchased: units,
+            date,
+            note: note.trim().slice(0, 200),
+          });
+        } else {
+          const qty = parseFloat(newQtyPerUnit);
+          const unitPrice = parseFloat(newUnitPrice);
+          const mrp = parseFloat(newMrp);
+          if (!newSection) return setError("Select a section.");
+          if (!newName.trim()) return setError("Enter product name.");
+          if (!newUnitLabel.trim()) return setError("Enter unit label.");
+          if (!qty || qty <= 0) return setError("Enter valid qty per unit.");
+          if (!unitPrice || unitPrice <= 0)
+            return setError("Enter valid purchase price.");
+          if (!mrp || mrp <= 0) return setError("Enter valid MRP.");
+          await addPurchaseGoods({
+            isNewProduct: true,
+            productDetails: {
+              section: newSection,
+              name: newName.trim(),
+              unitLabel: newUnitLabel.trim(),
+              qtyPerUnit: qty,
+              unitPurchasePrice: unitPrice,
+              unitsPurchased: units,
+              mrpPerQty: mrp,
+            },
+            unitsPurchased: units,
+            date,
+            note: note.trim().slice(0, 200),
+          });
+        }
+      } else {
+        const numericAmount = parseFloat(amount);
+        if (!numericAmount || numericAmount <= 0)
+          return setError("Enter a valid amount.");
+        await addLedgerEntry({
+          type,
+          subtype: subtypeName,
+          amount: numericAmount,
           date,
           note: note.trim().slice(0, 200),
+          productId: null,
         });
       }
-    } else {
-      const numericAmount = parseFloat(amount);
-      if (!numericAmount || numericAmount <= 0)
-        return setError("Enter a valid amount.");
-      await addLedgerEntry({
-        type,
-        subtype: subtypeName,
-        amount: numericAmount,
-        date,
-        note: note.trim().slice(0, 200),
-        productId: null,
-      });
+      resetForm();
+    } catch (err) {
+      console.error("Ledger entry submit error:", err);
+      setError(
+        "Something went wrong saving this entry. Check the console for details.",
+      );
     }
-    resetForm();
   };
 
   const handleConfirmDelete = async () => {

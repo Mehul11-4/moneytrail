@@ -7,6 +7,8 @@ import {
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppModeProvider, useAppMode } from "./context/AppModeContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Auth from "./pages/Auth";
 
 import AddExpense from "./pages/AddExpense";
 import ExpenseList from "./pages/ExpenseList";
@@ -160,7 +162,6 @@ function AnimatedRoutes() {
 
 function AppShell() {
   const { mode } = useAppMode();
-  const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
@@ -173,10 +174,6 @@ function AppShell() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          {/* Redirect to the right home screen the moment mode is picked, if we're still at "/" */}
-          {mode === "business" && location.pathname === "/" && (
-            <Navigate to="/business/counter" replace />
-          )}
           <AnimatedRoutes />
           {mode === "personal" ? <BottomNav /> : <BusinessBottomNav />}
         </motion.div>
@@ -185,13 +182,35 @@ function AppShell() {
   );
 }
 
-function App() {
+function AuthGate() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-textSecondary text-sm">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <AppModeProvider>
       <BrowserRouter>
         <AppShell />
       </BrowserRouter>
     </AppModeProvider>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }
 

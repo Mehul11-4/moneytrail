@@ -1,32 +1,51 @@
 import { useState, useEffect, useCallback } from "react";
-import { db } from "../db/database";
+import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 import { useProducts } from "./useProducts";
 
 export function useLedger() {
+  const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { products, addProduct, restockProduct } = useProducts();
+  const { addProduct, restockProduct } = useProducts();
 
   const loadEntries = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
-    const all = await db.ledgerEntries.orderBy("createdAt").reverse().toArray();
-    setEntries(all);
+    const { data, error } = await supabase
+      .from("ledger_entries")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase load ledger error:", error);
+    } else {
+      setEntries(mapEntriesFromDb(data));
+    }
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
 
   const addLedgerEntry = async (entry) => {
-    await db.ledgerEntries.add({
-      ...entry,
-      createdAt: new Date().toISOString(),
+    const { error } = await supabase.from("ledger_entries").insert({
+      user_id: user.id,
+      type: entry.type,
+      subtype: entry.subtype,
+      amount: entry.amount,
+      date: entry.date,
+      note: entry.note,
+      product_id: entry.productId || null,
     });
+    if (error) {
+      console.error("Supabase add ledger entry error:", error);
+      throw error;
+    }
     await loadEntries();
   };
 
-  // Purchase Goods — a Kharch entry that ALSO updates Inventory
   const addPurchaseGoods = async ({
     productId,
     isNewProduct,
@@ -50,22 +69,42 @@ export function useLedger() {
         unitsPurchased: productDetails.unitsPurchased,
         mrpPerQty: productDetails.mrpPerQty,
       });
-      const all = await db.products.orderBy("createdAt").reverse().toArray();
-      finalProductId = all[0].id;
+
+      const { data: newlyCreated, error: fetchErr } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fetchErr) {
+        console.error("Supabase fetch new product error:", fetchErr);
+        throw fetchErr;
+      }
+
+      finalProductId = newlyCreated.id;
       totalAmount =
         productDetails.unitPurchasePrice * productDetails.unitsPurchased;
       productName = productDetails.name;
       unitLabel = productDetails.unitLabel;
     } else {
-      const existing = await db.products.get(productId);
+      const { data: existing, error: fetchErr } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (fetchErr) {
+        console.error("Supabase fetch existing product error:", fetchErr);
+        throw fetchErr;
+      }
+
       await restockProduct(productId, unitsPurchased);
-      totalAmount = existing.unitPurchasePrice * unitsPurchased;
+      totalAmount = existing.unit_purchase_price * unitsPurchased;
       productName = existing.name;
-      unitLabel = existing.unitLabel;
+      unitLabel = existing.unit_label;
     }
 
-    // Always lead the note with what was actually purchased, so every entry
-    // is self-explanatory in lists — append the user's own note if they gave one
     const autoDescription = `${productName} — ${unitsPurchased} ${unitLabel}${unitsPurchased > 1 ? "s" : ""}`;
     const fullNote = note ? `${autoDescription} (${note})` : autoDescription;
 
@@ -80,8 +119,15 @@ export function useLedger() {
   };
 
   const deleteLedgerEntry = async (id) => {
-    await db.ledgerEntries.delete(id);
-    await loadEntries();
+    const { error } = await supabase
+      .from("ledger_entries")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase delete ledger entry error:", error);
+    } else {
+      await loadEntries();
+    }
   };
 
   return {
@@ -91,4 +137,17 @@ export function useLedger() {
     addPurchaseGoods,
     deleteLedgerEntry,
   };
+}
+
+function mapEntriesFromDb(rows) {
+  return rows.map((e) => ({
+    id: e.id,
+    type: e.type,
+    subtype: e.subtype,
+    amount: e.amount,
+    date: e.date,
+    note: e.note,
+    productId: e.product_id,
+    createdAt: e.created_at,
+  }));
 }

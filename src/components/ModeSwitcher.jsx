@@ -1,9 +1,21 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Wallet, Coffee } from "lucide-react";
 import { useAppMode } from "../context/AppModeContext";
 
 function ModeSwitcher() {
   const { setMode } = useAppMode();
+  const navigate = useNavigate();
+
+  const choosePersonal = () => {
+    setMode("personal");
+    navigate("/dashboard");
+  };
+
+  const chooseBusiness = () => {
+    setMode("business");
+    navigate("/business/counter");
+  };
 
   return (
     <motion.div
@@ -16,7 +28,7 @@ function ModeSwitcher() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => setMode("personal")}
+        onClick={choosePersonal}
         className="w-full max-w-xs aspect-square rounded-card bg-primary flex flex-col items-center justify-center gap-4 shadow-lg shadow-primary/20"
       >
         <Wallet className="w-20 h-20 text-background" />
@@ -30,7 +42,7 @@ function ModeSwitcher() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => setMode("business")}
+        onClick={chooseBusiness}
         className="w-full max-w-xs aspect-square rounded-card bg-amber-500 flex flex-col items-center justify-center gap-4 shadow-lg shadow-amber-500/20"
       >
         <Coffee className="w-20 h-20 text-background" />
