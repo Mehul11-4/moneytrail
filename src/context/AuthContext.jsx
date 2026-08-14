@@ -41,6 +41,16 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   };
 
+  const updateEmail = async (newEmail) => {
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    return { error };
+  };
+
+  const updatePassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -50,6 +60,8 @@ export function AuthProvider({ children }) {
         signUp,
         signIn,
         signOut,
+        updateEmail,
+        updatePassword,
       }}
     >
       {children}
