@@ -30,7 +30,7 @@ function Counter() {
   const [success, setSuccess] = useState(false);
 
   const selectedProduct = useMemo(
-    () => products.find((p) => p.id === parseInt(productId)),
+    () => products.find((p) => p.id === productId),
     [products, productId],
   );
 
