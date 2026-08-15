@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookText } from "lucide-react";
+import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
 import { useLedger } from "../../hooks/useLedger";
@@ -152,7 +153,9 @@ function JamaKharch() {
               <Card key={day.date}>
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-medium">{day.date}</p>
+                    <p className="text-sm font-medium">
+                      {formatDate(day.date)}
+                    </p>
                     <p className="text-xs text-textSecondary">
                       Jama ₹{day.jama.toFixed(2)} · Kharch ₹
                       {day.kharch.toFixed(2)}

@@ -6,6 +6,7 @@ import {
   Smartphone,
   HandCoins,
 } from "lucide-react";
+import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
@@ -231,7 +232,7 @@ function Counter() {
                       {sale.productName} × {sale.qtySold}
                     </p>
                     <p className="text-xs text-textSecondary">
-                      {sale.date} · {sale.time} · {sale.paymentMode}
+                      {formatDate(sale.date)} · {sale.time} · {sale.paymentMode}
                       {sale.customerName && ` · ${sale.customerName}`}
                     </p>
                   </div>

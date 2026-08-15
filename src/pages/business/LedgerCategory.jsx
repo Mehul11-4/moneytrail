@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Trash2, Plus, X } from "lucide-react";
+import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
@@ -438,7 +439,7 @@ function LedgerCategory() {
             >
               <p className="text-sm text-textSecondary">{item.note}</p>
               <p className="text-xs text-textSecondary/70 mt-0.5">
-                {item.date}
+                {formatDate(item.date)}
                 {item.time ? ` · ${item.time}` : ""}
               </p>
             </button>
@@ -505,7 +506,7 @@ function LedgerCategory() {
                 label="Amount"
                 value={`₹${viewingDetail.amount.toFixed(2)}`}
               />
-              <DetailRow label="Date" value={viewingDetail.date} />
+              <DetailRow label="Date" value={formatDate(viewingDetail.date)} />
               {viewingDetail.time && (
                 <DetailRow label="Time" value={viewingDetail.time} />
               )}
