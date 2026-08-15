@@ -101,8 +101,7 @@ function Counter() {
       saleDate,
     });
 
-    await deductStock(selectedProduct.id, q);
-
+    await deductStock(selectedProduct.id, q, selectedProduct.is_static);
     resetForm();
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);
