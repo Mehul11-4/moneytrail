@@ -4,7 +4,7 @@ import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
 import { useProducts } from "../../hooks/useProducts";
-import { PRODUCT_SECTIONS } from "../../utils/productSections";
+import { useProductTypes } from "../../hooks/useProductTypes";
 
 // Low stock = less than 1 full Unit remaining (e.g. less than 1 Packet's worth)
 // Full bar reference = 5 Units worth of stock, scaled per-product
@@ -13,6 +13,7 @@ const FULL_BAR_UNITS = 5;
 
 function Inventory() {
   const { products, loading, updateProduct, deleteProduct } = useProducts();
+  const { productTypes } = useProductTypes();
   const [selected, setSelected] = useState(null); // product being viewed/edited
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -21,14 +22,14 @@ function Inventory() {
 
   const grouped = useMemo(() => {
     const map = {};
-    PRODUCT_SECTIONS.forEach((s) => (map[s] = []));
+    productTypes.forEach((t) => (map[t.name] = []));
     products.forEach((p) => {
       const section = p.section || "Other";
       if (!map[section]) map[section] = [];
       map[section].push(p);
     });
     return map;
-  }, [products]);
+  }, [products, productTypes]);
 
   const openDetail = (p) => {
     setSelected(p);
@@ -102,11 +103,12 @@ function Inventory() {
         </p>
       )}
 
-      {PRODUCT_SECTIONS.map((section) => {
+      {productTypes.map((t) => {
+        const section = t.name;
         const items = grouped[section] || [];
         if (items.length === 0) return null;
         return (
-          <div key={section} className="mb-5">
+          <div key={t.id} className="mb-5">
             <p className="text-sm font-heading font-bold text-primary mb-2">
               {section}
             </p>

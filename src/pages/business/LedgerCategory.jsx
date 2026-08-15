@@ -7,8 +7,7 @@ import Input from "../../components/Input";
 import { useSales } from "../../hooks/useSales";
 import { useLedger } from "../../hooks/useLedger";
 import { useProducts } from "../../hooks/useProducts";
-import { PRODUCT_SECTIONS } from "../../utils/productSections";
-
+import { useProductTypes } from "../../hooks/useProductTypes";
 const LABELS = {
   sale: "Sale",
   capital: "Capital",
@@ -49,6 +48,10 @@ function LedgerCategory() {
   const { entries, addLedgerEntry, addPurchaseGoods, deleteLedgerEntry } =
     useLedger();
   const { products, restoreStockQty } = useProducts();
+  const { productTypes, addProductType } = useProductTypes();
+  const [addingNewType, setAddingNewType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeError, setNewTypeError] = useState("");
 
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -263,20 +266,77 @@ function LedgerCategory() {
                   <>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs text-textSecondary font-medium">
-                        Section
+                        Product Type
                       </label>
-                      <select
-                        value={newSection}
-                        onChange={(e) => setNewSection(e.target.value)}
-                        className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
-                      >
-                        <option value="">Select section</option>
-                        {PRODUCT_SECTIONS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                      {!addingNewType ? (
+                        <>
+                          <select
+                            value={newSection}
+                            onChange={(e) => setNewSection(e.target.value)}
+                            className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                          >
+                            <option value="">Select product type</option>
+                            {productTypes.map((t) => (
+                              <option key={t.id} value={t.name}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setAddingNewType(true)}
+                            className="text-primary text-xs font-medium text-left mt-1"
+                          >
+                            + Add new product type
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <input
+                            type="text"
+                            value={newTypeName}
+                            onChange={(e) => setNewTypeName(e.target.value)}
+                            placeholder="e.g. Snacks, Cold Drinks"
+                            className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                          />
+                          {newTypeError && (
+                            <p className="text-danger text-xs">
+                              {newTypeError}
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setNewTypeError("");
+                                const { error } =
+                                  await addProductType(newTypeName);
+                                if (error) {
+                                  setNewTypeError(error.message);
+                                } else {
+                                  setNewSection(newTypeName.trim());
+                                  setNewTypeName("");
+                                  setAddingNewType(false);
+                                }
+                              }}
+                              className="flex-1 bg-primary text-background rounded-control py-2 text-sm font-medium"
+                            >
+                              Save Type
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingNewType(false);
+                                setNewTypeName("");
+                                setNewTypeError("");
+                              }}
+                              className="flex-1 bg-surface border border-white/10 rounded-control py-2 text-sm font-medium"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Input
                       label="Product Name"
