@@ -9,12 +9,12 @@ function ModeSwitcher() {
 
   const choosePersonal = () => {
     setMode("personal");
-    navigate("/dashboard");
+    navigate("/dashboard", { replace: true });
   };
 
   const chooseBusiness = () => {
     setMode("business");
-    navigate("/business/counter");
+    navigate("/business/counter", { replace: true });
   };
 
   return (

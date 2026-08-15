@@ -266,11 +266,14 @@ function LedgerCategory() {
                       className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
                     >
                       <option value="">Select product</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.section} — {p.name}
-                        </option>
-                      ))}
+                      {products
+                        .filter((p) => !p.is_static)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.section} — {p.name} (₹{p.unit_purchase_price}/
+                            {p.unit_label})
+                          </option>
+                        ))}
                     </select>
                   </div>
                 ) : (
