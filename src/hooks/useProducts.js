@@ -28,11 +28,29 @@ export function useProducts() {
   }, [loadProducts]);
 
   const addProduct = async (product) => {
+    if (product.isStatic) {
+      const { error } = await supabase.from("products").insert({
+        user_id: user.id,
+        section: product.section || "Other",
+        name: product.name,
+        is_static: true,
+        price_per_qty: product.costPrice,
+        mrp_per_qty: product.mrpPerQty,
+      });
+      if (error) {
+        console.error("Supabase add static product error:", error);
+      } else {
+        await loadProducts();
+      }
+      return;
+    }
+
     const pricePerQty = product.unitPurchasePrice / product.qtyPerUnit;
     const { error } = await supabase.from("products").insert({
       user_id: user.id,
       section: product.section || "Other",
       name: product.name,
+      is_static: false,
       unit_label: product.unitLabel,
       qty_per_unit: product.qtyPerUnit,
       unit_purchase_price: product.unitPurchasePrice,
@@ -95,7 +113,8 @@ export function useProducts() {
     }
   };
 
-  const deductStock = async (id, qtySold) => {
+  const deductStock = async (id, qtySold, isStatic) => {
+    if (isStatic) return; // static products (Chai, Coffee) have no stock to deduct
     const { data: existing } = await supabase
       .from("products")
       .select("stock_qty")
@@ -116,10 +135,10 @@ export function useProducts() {
   const restoreStockQty = async (id, qty) => {
     const { data: existing } = await supabase
       .from("products")
-      .select("stock_qty")
+      .select("stock_qty, is_static")
       .eq("id", id)
       .single();
-    if (!existing) return;
+    if (!existing || existing.is_static) return; // nothing to restore for static products
     const { error } = await supabase
       .from("products")
       .update({ stock_qty: existing.stock_qty + qty })
@@ -130,7 +149,6 @@ export function useProducts() {
       await loadProducts();
     }
   };
-
   return {
     products,
     loading,

@@ -7,6 +7,8 @@ import {
   Check,
   Trash2,
   Search,
+  Coffee,
+  Plus,
 } from "lucide-react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -20,9 +22,41 @@ const LOW_STOCK_UNITS = 1;
 const FULL_BAR_UNITS = 5;
 
 function Inventory() {
-  const { products, loading, updateProduct, deleteProduct } = useProducts();
+  const { products, loading, updateProduct, deleteProduct, addProduct } =
+    useProducts();
   const { productTypes } = useProductTypes();
   const [searchQuery, setSearchQuery] = useState("");
+  const [showStaticForm, setShowStaticForm] = useState(false);
+  const [staticName, setStaticName] = useState("");
+  const [staticSection, setStaticSection] = useState("");
+  const [staticCost, setStaticCost] = useState("");
+  const [staticMrp, setStaticMrp] = useState("");
+  const [staticError, setStaticError] = useState("");
+
+  const handleAddStatic = async (e) => {
+    e.preventDefault();
+    setStaticError("");
+    const cost = parseFloat(staticCost);
+    const mrp = parseFloat(staticMrp);
+    if (!staticName.trim()) return setStaticError("Enter an item name.");
+    if (!staticSection) return setStaticError("Select a product type.");
+    if (!cost || cost <= 0) return setStaticError("Enter a valid cost price.");
+    if (!mrp || mrp <= 0) return setStaticError("Enter a valid MRP.");
+
+    await addProduct({
+      isStatic: true,
+      name: staticName.trim(),
+      section: staticSection,
+      costPrice: cost,
+      mrpPerQty: mrp,
+    });
+
+    setStaticName("");
+    setStaticSection("");
+    setStaticCost("");
+    setStaticMrp("");
+    setShowStaticForm(false);
+  };
   const [selected, setSelected] = useState(null); // product being viewed/edited
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -112,8 +146,7 @@ function Inventory() {
         Tap any product for details or to edit. Stock updates automatically from
         Jama-Kharch and Sale Voucher.
       </p>
-
-      <div className="relative mb-4">
+      <div className="relative mb-3">
         <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
@@ -123,6 +156,78 @@ function Inventory() {
           className="w-full bg-surface border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
         />
       </div>
+
+      <Button
+        variant="secondary"
+        onClick={() => setShowStaticForm(!showStaticForm)}
+        className="w-full flex items-center justify-center gap-2 mb-4"
+      >
+        <Coffee className="w-4 h-4" /> Add Static Item (Chai, Coffee, etc.)
+      </Button>
+
+      {showStaticForm && (
+        <Card className="mb-4">
+          <p className="text-sm font-medium mb-3">New Static Item</p>
+          <form onSubmit={handleAddStatic} className="flex flex-col gap-3">
+            <Input
+              label="Item Name"
+              name="staticName"
+              value={staticName}
+              onChange={(e) => setStaticName(e.target.value)}
+              placeholder="e.g. Chai, Coffee"
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-textSecondary font-medium">
+                Product Type
+              </label>
+              <select
+                value={staticSection}
+                onChange={(e) => setStaticSection(e.target.value)}
+                className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+              >
+                <option value="">Select product type</option>
+                {productTypes.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Cost Price (₹)"
+              name="staticCost"
+              type="number"
+              value={staticCost}
+              onChange={(e) => setStaticCost(e.target.value)}
+              placeholder="e.g. 5"
+            />
+            <Input
+              label="MRP (₹)"
+              name="staticMrp"
+              type="number"
+              value={staticMrp}
+              onChange={(e) => setStaticMrp(e.target.value)}
+              placeholder="e.g. 15"
+            />
+            {staticError && (
+              <p className="text-danger text-sm">{staticError}</p>
+            )}
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary" className="flex-1">
+                Save Item
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowStaticForm(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
 
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
       {!loading && products.length === 0 && (
@@ -143,13 +248,17 @@ function Inventory() {
             </p>
             <div className="flex flex-col gap-3">
               {items.map((p) => {
-                const isLow = p.stock_qty <= p.qty_per_unit * LOW_STOCK_UNITS;
-                // Stock level as a fraction of "5 full Units" worth, scaled to THIS product's Unit size
-                const fullBarQty = p.qty_per_unit * FULL_BAR_UNITS;
-                const stockPct = Math.min(
-                  100,
-                  (p.stock_qty / fullBarQty) * 100,
-                );
+                // Static products (Chai, Coffee) have no stock/unit tracking at all —
+                // skip these calculations entirely for them.
+                const isLow = p.is_static
+                  ? false
+                  : p.stock_qty <= p.qty_per_unit * LOW_STOCK_UNITS;
+                const fullBarQty = p.is_static
+                  ? 1
+                  : p.qty_per_unit * FULL_BAR_UNITS;
+                const stockPct = p.is_static
+                  ? 0
+                  : Math.min(100, (p.stock_qty / fullBarQty) * 100);
                 const lineColor = isLow
                   ? "bg-danger"
                   : stockPct < 50
@@ -162,42 +271,60 @@ function Inventory() {
                     onClick={() => openDetail(p)}
                     className="text-left"
                   >
-                    <Card className={isLow ? "border-warning/40" : ""}>
+                    <Card
+                      key={p.id}
+                      className={
+                        !p.is_static && isLow ? "border-warning/40" : ""
+                      }
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-medium">{p.name}</p>
+                          {p.is_static ? (
+                            <p className="text-xs text-textSecondary">
+                              Cost ₹{p.price_per_qty.toFixed(2)} · MRP ₹
+                              {p.mrp_per_qty.toFixed(2)}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-textSecondary">
+                              1 {p.unit_label} = {p.qty_per_unit} pcs · Cost ₹
+                              {p.price_per_qty.toFixed(2)}/pc · MRP ₹
+                              {p.mrp_per_qty.toFixed(2)}/pc
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {!p.is_static && (
+                        <div className="flex items-center justify-between mb-2">
                           <p className="text-xs text-textSecondary">
-                            1 {p.unit_label} = {p.qty_per_unit} pcs · Cost ₹
-                            {p.price_per_qty.toFixed(2)}/pc · MRP ₹
-                            {p.mrp_per_qty.toFixed(2)}/pc
+                            Stock remaining
+                          </p>
+                          <p
+                            className={`font-heading font-bold ${isLow ? "text-warning" : "text-textPrimary"}`}
+                          >
+                            {p.stock_qty} pcs
                           </p>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-textSecondary">
-                          Stock remaining
-                        </p>
-                        <p
-                          className={`font-heading font-bold ${isLow ? "text-warning" : "text-textPrimary"}`}
-                        >
-                          {p.stock_qty} pcs
-                        </p>
-                      </div>
+                      {!p.is_static && (
+                        <>
+                          {/* Animated stock level line */}
+                          <div className="w-full bg-background rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full ${lineColor} transition-all duration-700 ease-out`}
+                              style={{ width: `${stockPct}%` }}
+                            />
+                          </div>
 
-                      {/* Animated stock level line */}
-                      <div className="w-full bg-background rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full ${lineColor} transition-all duration-700 ease-out`}
-                          style={{ width: `${stockPct}%` }}
-                        />
-                      </div>
-
-                      {isLow && (
-                        <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-warning">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          Low stock — restock via Jama-Kharch
-                        </div>
+                          {isLow && (
+                            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-warning">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Low stock — restock via Jama-Kharch
+                            </div>
+                          )}
+                        </>
                       )}
                     </Card>
                   </button>
