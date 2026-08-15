@@ -74,7 +74,7 @@ function Counter() {
 
     if (!selectedProduct) return setError("Select a product.");
     if (!q || q <= 0) return setError("Enter a valid quantity.");
-    if (q > selectedProduct.stock_qty) {
+    if (!selectedProduct.is_static && q > selectedProduct.stock_qty) {
       return setError(
         `Only ${selectedProduct.stock_qty} pcs in stock — cannot sell ${q}.`,
       );
