@@ -72,11 +72,10 @@ function LedgerCategory() {
   const [newQtyPerUnit, setNewQtyPerUnit] = useState("");
   const [newUnitPrice, setNewUnitPrice] = useState("");
   const [newMrp, setNewMrp] = useState("");
-
-  const items = useMemo(() => {
-    let result;
+  // Unfiltered list — used to decide whether to show the search bar at all
+  const allItems = useMemo(() => {
     if (slug === "sale") {
-      result = sales.map((s) => ({
+      return sales.map((s) => ({
         kind: "sale",
         id: s.id,
         amount: s.total,
@@ -86,30 +85,29 @@ function LedgerCategory() {
         raw: s,
         createdAt: s.createdAt,
       }));
-    } else {
-      result = entries
-        .filter((e) => e.subtype === subtypeName && e.type === type)
-        .map((e) => ({
-          kind: "ledger",
-          id: e.id,
-          amount: e.amount,
-          date: e.date,
-          time: null,
-          note: e.note,
-          raw: e,
-          createdAt: e.createdAt,
-        }));
     }
+    return entries
+      .filter((e) => e.subtype === subtypeName && e.type === type)
+      .map((e) => ({
+        kind: "ledger",
+        id: e.id,
+        amount: e.amount,
+        date: e.date,
+        time: null,
+        note: e.note,
+        raw: e,
+        createdAt: e.createdAt,
+      }));
+  }, [slug, sales, entries, subtypeName, type]);
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter((item) =>
-        (item.note || "").toLowerCase().includes(q),
-      );
-    }
-
-    return result;
-  }, [slug, sales, entries, subtypeName, type, searchQuery]);
+  // Filtered list — what's actually displayed below
+  const items = useMemo(() => {
+    if (!searchQuery.trim()) return allItems;
+    const q = searchQuery.trim().toLowerCase();
+    return allItems.filter((item) =>
+      (item.note || "").toLowerCase().includes(q),
+    );
+  }, [allItems, searchQuery]);
 
   const total = useMemo(() => items.reduce((s, i) => s + i.amount, 0), [items]);
 
@@ -436,7 +434,7 @@ function LedgerCategory() {
         </Card>
       )}
 
-      {items.length > 3 && (
+      {allItems.length > 3 && (
         <div className="relative mb-3">
           <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
           <input
