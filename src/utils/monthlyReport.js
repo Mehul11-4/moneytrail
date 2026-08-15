@@ -16,7 +16,12 @@ const MONTH_NAMES = [
   "December",
 ];
 
-export function generateMonthlyPDF({ year, month, sales, ledgerEntries }) {
+export async function generateMonthlyPDF({
+  year,
+  month,
+  sales,
+  ledgerEntries,
+}) {
   const monthLabel = MONTH_NAMES[month];
   const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
 
@@ -35,6 +40,14 @@ export function generateMonthlyPDF({ year, month, sales, ledgerEntries }) {
   const netProfit = salesTotal - kharchTotal; // cash-basis, matching P&L page
 
   const doc = new jsPDF();
+
+  // Load the Hindi-compatible font only when generating a PDF (not at app
+  // startup), so it doesn't slow down or crash the app on lower-memory phones.
+  const { notoSansDevanagariBase64 } = await import("./notoSansDevanagariFont");
+  doc.addFileToVFS("NotoSansDevanagari-Regular.ttf", notoSansDevanagariBase64);
+  doc.addFont("NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari", "normal");
+  doc.setFont("NotoSansDevanagari");
+
   let y = 20;
 
   // ---- Header ----
