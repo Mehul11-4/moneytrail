@@ -27,7 +27,6 @@ function Inventory() {
   const { productTypes } = useProductTypes();
   const [searchQuery, setSearchQuery] = useState("");
   const [showStaticForm, setShowStaticForm] = useState(false);
-  const [staticName, setStaticName] = useState("");
   const [staticSection, setStaticSection] = useState("");
   const [staticCost, setStaticCost] = useState("");
   const [staticMrp, setStaticMrp] = useState("");
@@ -38,20 +37,18 @@ function Inventory() {
     setStaticError("");
     const cost = parseFloat(staticCost);
     const mrp = parseFloat(staticMrp);
-    if (!staticName.trim()) return setStaticError("Enter an item name.");
     if (!staticSection) return setStaticError("Select a product type.");
     if (!cost || cost <= 0) return setStaticError("Enter a valid cost price.");
     if (!mrp || mrp <= 0) return setStaticError("Enter a valid MRP.");
 
     await addProduct({
       isStatic: true,
-      name: staticName.trim(),
+      name: staticSection,
       section: staticSection,
       costPrice: cost,
       mrpPerQty: mrp,
     });
 
-    setStaticName("");
     setStaticSection("");
     setStaticCost("");
     setStaticMrp("");
@@ -169,13 +166,6 @@ function Inventory() {
         <Card className="mb-4">
           <p className="text-sm font-medium mb-3">New Static Item</p>
           <form onSubmit={handleAddStatic} className="flex flex-col gap-3">
-            <Input
-              label="Item Name"
-              name="staticName"
-              value={staticName}
-              onChange={(e) => setStaticName(e.target.value)}
-              placeholder="e.g. Chai, Coffee"
-            />
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-textSecondary font-medium">
                 Product Type
