@@ -29,6 +29,10 @@ export function useSales() {
 
   const recordSale = async (sale) => {
     const now = new Date();
+    // Use the provided saleDate if given (for backdated entries), otherwise today.
+    // Time is always "now" — we don't ask the user to guess a past time.
+    const finalDate = sale.saleDate || now.toISOString().split("T")[0];
+
     const { error } = await supabase.from("sales").insert({
       user_id: user.id,
       product_id: sale.productId,
@@ -40,7 +44,7 @@ export function useSales() {
       payment_mode: sale.paymentMode,
       customer_name: sale.customerName,
       customer_phone: sale.customerPhone,
-      date: now.toISOString().split("T")[0],
+      date: finalDate,
       time: now.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",

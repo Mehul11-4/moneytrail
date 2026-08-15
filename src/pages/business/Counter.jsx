@@ -26,6 +26,9 @@ function Counter() {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [saleDate, setSaleDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -46,6 +49,7 @@ function Counter() {
     setPaymentMode("Cash");
     setCustomerName("");
     setCustomerPhone("");
+    setSaleDate(new Date().toISOString().split("T")[0]);
     setError("");
   };
 
@@ -81,6 +85,7 @@ function Counter() {
       paymentMode,
       customerName: paymentMode === "Udhaar" ? customerName.trim() : null,
       customerPhone: paymentMode === "Udhaar" ? customerPhone.trim() : null,
+      saleDate,
     });
 
     await deductStock(selectedProduct.id, q);
@@ -124,6 +129,15 @@ function Counter() {
             placeholder="e.g. 3"
             value={qty}
             onChange={(e) => setQty(e.target.value)}
+          />
+
+          <Input
+            label="Sale Date"
+            name="saleDate"
+            type="date"
+            value={saleDate}
+            max={new Date().toISOString().split("T")[0]}
+            onChange={(e) => setSaleDate(e.target.value)}
           />
 
           {selectedProduct && (
