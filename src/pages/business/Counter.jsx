@@ -5,6 +5,7 @@ import {
   Banknote,
   Smartphone,
   HandCoins,
+  Search,
 } from "lucide-react";
 import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
@@ -23,6 +24,8 @@ function Counter() {
   const { products, deductStock } = useProducts();
   const { sales, recordSale } = useSales();
   const [productId, setProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductList, setShowProductList] = useState(false);
   const [qty, setQty] = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerName, setCustomerName] = useState("");
@@ -37,6 +40,15 @@ function Counter() {
     () => products.find((p) => p.id === productId),
     [products, productId],
   );
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    const q = productSearch.trim().toLowerCase();
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) || p.section.toLowerCase().includes(q),
+    );
+  }, [products, productSearch]);
 
   const total = useMemo(() => {
     const q = parseFloat(qty);
@@ -105,22 +117,59 @@ function Counter() {
 
       <Card>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 relative">
             <label className="text-xs text-textSecondary font-medium">
               Product
             </label>
-            <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+            <button
+              type="button"
+              onClick={() => setShowProductList(!showProductList)}
+              className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-left text-sm focus:outline-none"
             >
-              <option value="">Select a product</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.section} — {p.name} ({p.stock_qty} pcs left)
-                </option>
-              ))}
-            </select>
+              {selectedProduct ? (
+                <span className="text-textPrimary">
+                  {selectedProduct.section} — {selectedProduct.name} (
+                  {selectedProduct.stock_qty} pcs left)
+                </span>
+              ) : (
+                <span className="text-textSecondary">Select a product</span>
+              )}
+            </button>
+
+            {showProductList && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-white/10 rounded-control z-20 max-h-72 overflow-y-auto">
+                <div className="relative p-2 border-b border-white/10 sticky top-0 bg-surface">
+                  <Search className="w-4 h-4 text-textSecondary absolute left-5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-full bg-background border border-white/10 rounded-control pl-9 pr-3 py-2 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                {filteredProducts.length === 0 && (
+                  <p className="text-textSecondary text-sm p-3">
+                    No products found.
+                  </p>
+                )}
+                {filteredProducts.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setProductId(p.id);
+                      setShowProductList(false);
+                      setProductSearch("");
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                  >
+                    {p.section} — {p.name} ({p.stock_qty} pcs left)
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Input

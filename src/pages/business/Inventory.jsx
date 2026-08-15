@@ -1,5 +1,13 @@
 import { useState, useMemo } from "react";
-import { Package, AlertTriangle, X, Pencil, Check, Trash2 } from "lucide-react";
+import {
+  Package,
+  AlertTriangle,
+  X,
+  Pencil,
+  Check,
+  Trash2,
+  Search,
+} from "lucide-react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
@@ -14,22 +22,32 @@ const FULL_BAR_UNITS = 5;
 function Inventory() {
   const { products, loading, updateProduct, deleteProduct } = useProducts();
   const { productTypes } = useProductTypes();
+  const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState(null); // product being viewed/edited
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({});
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.trim().toLowerCase();
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) || p.section.toLowerCase().includes(q),
+    );
+  }, [products, searchQuery]);
+
   const grouped = useMemo(() => {
     const map = {};
     productTypes.forEach((t) => (map[t.name] = []));
-    products.forEach((p) => {
+    filteredProducts.forEach((p) => {
       const section = p.section || "Other";
       if (!map[section]) map[section] = [];
       map[section].push(p);
     });
     return map;
-  }, [products, productTypes]);
+  }, [filteredProducts, productTypes]);
 
   const openDetail = (p) => {
     setSelected(p);
@@ -94,6 +112,17 @@ function Inventory() {
         Tap any product for details or to edit. Stock updates automatically from
         Jama-Kharch and Sale Voucher.
       </p>
+
+      <div className="relative mb-4">
+        <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search products..."
+          className="w-full bg-surface border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+        />
+      </div>
 
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
       {!loading && products.length === 0 && (

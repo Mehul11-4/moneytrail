@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Trash2, Plus, X } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Search } from "lucide-react";
 import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -60,6 +60,7 @@ function LedgerCategory() {
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [viewingDetail, setViewingDetail] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Purchase Goods specific
   const [purchaseMode, setPurchaseMode] = useState("existing");
@@ -73,8 +74,9 @@ function LedgerCategory() {
   const [newMrp, setNewMrp] = useState("");
 
   const items = useMemo(() => {
+    let result;
     if (slug === "sale") {
-      return sales.map((s) => ({
+      result = sales.map((s) => ({
         kind: "sale",
         id: s.id,
         amount: s.total,
@@ -84,20 +86,30 @@ function LedgerCategory() {
         raw: s,
         createdAt: s.createdAt,
       }));
+    } else {
+      result = entries
+        .filter((e) => e.subtype === subtypeName && e.type === type)
+        .map((e) => ({
+          kind: "ledger",
+          id: e.id,
+          amount: e.amount,
+          date: e.date,
+          time: null,
+          note: e.note,
+          raw: e,
+          createdAt: e.createdAt,
+        }));
     }
-    return entries
-      .filter((e) => e.subtype === subtypeName && e.type === type)
-      .map((e) => ({
-        kind: "ledger",
-        id: e.id,
-        amount: e.amount,
-        date: e.date,
-        time: null,
-        note: e.note,
-        raw: e,
-        createdAt: e.createdAt,
-      }));
-  }, [slug, sales, entries, subtypeName, type]);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((item) =>
+        (item.note || "").toLowerCase().includes(q),
+      );
+    }
+
+    return result;
+  }, [slug, sales, entries, subtypeName, type, searchQuery]);
 
   const total = useMemo(() => items.reduce((s, i) => s + i.amount, 0), [items]);
 
@@ -422,6 +434,19 @@ function LedgerCategory() {
             </Button>
           </form>
         </Card>
+      )}
+
+      {items.length > 3 && (
+        <div className="relative mb-3">
+          <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={`Search ${label.toLowerCase()} entries...`}
+            className="w-full bg-surface border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+          />
+        </div>
       )}
 
       <p className="text-sm font-medium text-textSecondary mb-2">
