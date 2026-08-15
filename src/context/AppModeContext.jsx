@@ -1,11 +1,23 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AppModeContext = createContext();
 
 export function AppModeProvider({ children }) {
-  // Always start at the selector screen on every fresh login/session —
-  // mode is no longer remembered across logins (by design)
-  const [mode, setMode] = useState(null);
+  // Persist mode in sessionStorage so a page REFRESH doesn't kick you back
+  // to the selector — but sessionStorage clears itself when the browser
+  // tab/app is fully closed, or when we explicitly clear it on logout,
+  // so a fresh LOGIN still starts at the selector as before.
+  const [mode, setMode] = useState(() => {
+    return sessionStorage.getItem("moneytrail_mode") || null;
+  });
+
+  useEffect(() => {
+    if (mode) {
+      sessionStorage.setItem("moneytrail_mode", mode);
+    } else {
+      sessionStorage.removeItem("moneytrail_mode");
+    }
+  }, [mode]);
 
   const toggleMode = () => {
     setMode((prev) => (prev === "personal" ? "business" : "personal"));

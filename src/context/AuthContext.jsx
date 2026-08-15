@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
+    sessionStorage.removeItem("moneytrail_mode");
     await supabase.auth.signOut();
   };
 
