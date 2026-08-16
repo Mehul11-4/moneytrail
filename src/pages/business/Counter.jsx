@@ -23,6 +23,16 @@ const paymentModes = [
 function Counter() {
   const { products, deductStock } = useProducts();
   const { sales, recordSale } = useSales();
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todaySales = useMemo(
+    () => sales.filter((s) => s.date === todayStr),
+    [sales, todayStr],
+  );
+  const todayTotal = useMemo(
+    () => todaySales.reduce((sum, s) => sum + s.total, 0),
+    [todaySales],
+  );
   const [productId, setProductId] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [showProductList, setShowProductList] = useState(false);
@@ -125,10 +135,20 @@ function Counter() {
 
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
-      <div className="flex items-center gap-3 mt-6 mb-6">
+      <div className="flex items-center gap-3 mt-6 mb-4">
         <ShoppingCart className="w-7 h-7 text-primary" />
         <h1 className="text-2xl font-heading font-bold">Sale Voucher</h1>
       </div>
+
+      <Card className="mb-6 border-primary/30">
+        <p className="text-textSecondary text-sm mb-1">Today's Total Sales</p>
+        <p className="text-3xl font-heading font-bold text-primary">
+          ₹{todayTotal.toFixed(2)}
+        </p>
+        <p className="text-xs text-textSecondary mt-1">
+          {todaySales.length} sale{todaySales.length !== 1 ? "s" : ""} today
+        </p>
+      </Card>
 
       <Card>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -295,13 +315,13 @@ function Counter() {
         </form>
       </Card>
 
-      {sales.length > 0 && (
+      {todaySales.length > 0 && (
         <div className="mt-6">
           <p className="text-sm font-medium text-textSecondary mb-2">
-            Recent Sales
+            Today's Sales
           </p>
           <div className="flex flex-col gap-2">
-            {sales.slice(0, 5).map((sale) => (
+            {todaySales.slice(0, 10).map((sale) => (
               <Card key={sale.id}>
                 <div className="flex justify-between items-start">
                   <div>
