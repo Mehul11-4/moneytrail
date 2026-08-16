@@ -65,6 +65,8 @@ function LedgerCategory() {
   // Purchase Goods specific
   const [purchaseMode, setPurchaseMode] = useState("existing");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [restockSearch, setRestockSearch] = useState("");
+  const [showRestockList, setShowRestockList] = useState(false);
   const [unitsPurchased, setUnitsPurchased] = useState("");
   const [newSection, setNewSection] = useState("");
   const [newName, setNewName] = useState("");
@@ -256,25 +258,90 @@ function LedgerCategory() {
                   </button>
                 </div>
                 {purchaseMode === "existing" ? (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1.5 relative">
                     <label className="text-xs text-textSecondary font-medium">
                       Product
                     </label>
-                    <select
-                      value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
-                      className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
-                    >
-                      <option value="">Select product</option>
-                      {products
-                        .filter((p) => !p.is_static)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.section} — {p.name} (₹{p.unit_purchase_price}/
-                            {p.unit_label})
-                          </option>
-                        ))}
-                    </select>
+                    {(() => {
+                      const restockableProducts = products.filter(
+                        (p) => !p.is_static,
+                      );
+                      const selectedRestockProduct = restockableProducts.find(
+                        (p) => p.id === selectedProductId,
+                      );
+                      const filteredRestockProducts = restockSearch.trim()
+                        ? restockableProducts.filter(
+                            (p) =>
+                              p.name
+                                .toLowerCase()
+                                .includes(restockSearch.trim().toLowerCase()) ||
+                              p.section
+                                .toLowerCase()
+                                .includes(restockSearch.trim().toLowerCase()),
+                          )
+                        : restockableProducts;
+
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setShowRestockList(!showRestockList)}
+                            className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-left text-sm focus:outline-none"
+                          >
+                            {selectedRestockProduct ? (
+                              <span className="text-textPrimary">
+                                {selectedRestockProduct.section} —{" "}
+                                {selectedRestockProduct.name} (₹
+                                {selectedRestockProduct.unit_purchase_price}/
+                                {selectedRestockProduct.unit_label})
+                              </span>
+                            ) : (
+                              <span className="text-textSecondary">
+                                Select product
+                              </span>
+                            )}
+                          </button>
+
+                          {showRestockList && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-white/10 rounded-control z-20 max-h-72 overflow-y-auto">
+                              <div className="relative p-2 border-b border-white/10 sticky top-0 bg-surface">
+                                <Search className="w-4 h-4 text-textSecondary absolute left-5 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={restockSearch}
+                                  onChange={(e) =>
+                                    setRestockSearch(e.target.value)
+                                  }
+                                  placeholder="Search products..."
+                                  className="w-full bg-background border border-white/10 rounded-control pl-9 pr-3 py-2 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              {filteredRestockProducts.length === 0 && (
+                                <p className="text-textSecondary text-sm p-3">
+                                  No products found.
+                                </p>
+                              )}
+                              {filteredRestockProducts.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProductId(p.id);
+                                    setShowRestockList(false);
+                                    setRestockSearch("");
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                                >
+                                  {p.section} — {p.name} (₹
+                                  {p.unit_purchase_price}/{p.unit_label})
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <>
