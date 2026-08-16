@@ -141,7 +141,7 @@ function LedgerCategory() {
         if (purchaseMode === "existing") {
           if (!selectedProductId) return setError("Select a product.");
           await addPurchaseGoods({
-            productId: parseInt(selectedProductId),
+            productId: selectedProductId,
             isNewProduct: false,
             unitsPurchased: units,
             date,
