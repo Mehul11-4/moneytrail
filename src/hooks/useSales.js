@@ -29,8 +29,6 @@ export function useSales() {
 
   const recordSale = async (sale) => {
     const now = new Date();
-    // Use the provided saleDate if given (for backdated entries), otherwise today.
-    // Time is always "now" — we don't ask the user to guess a past time.
     const finalDate = sale.saleDate || now.toISOString().split("T")[0];
 
     const { error } = await supabase.from("sales").insert({
@@ -57,6 +55,41 @@ export function useSales() {
     }
   };
 
+  // Records multiple cart items as ONE transaction (shared payment mode,
+  // customer, date, and transaction_id) — used by the multi-item Sale Voucher.
+  const recordMultiSale = async (cartItems, meta) => {
+    const now = new Date();
+    const finalDate = meta.saleDate || now.toISOString().split("T")[0];
+    const time = now.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const transactionId = crypto.randomUUID();
+
+    const rows = cartItems.map((item) => ({
+      user_id: user.id,
+      product_id: item.productId,
+      product_name: item.productName,
+      qty_sold: item.qtySold,
+      price_per_qty_at_sale: item.pricePerQtyAtSale,
+      mrp_at_sale: item.mrpAtSale,
+      total: item.total,
+      payment_mode: meta.paymentMode,
+      customer_name: meta.customerName,
+      customer_phone: meta.customerPhone,
+      date: finalDate,
+      time,
+      transaction_id: transactionId,
+    }));
+
+    const { error } = await supabase.from("sales").insert(rows);
+    if (error) {
+      console.error("Supabase record multi-sale error:", error);
+      throw error;
+    }
+    await loadSales();
+  };
+
   const deleteSale = async (id) => {
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (error) {
@@ -66,7 +99,7 @@ export function useSales() {
     }
   };
 
-  return { sales, loading, recordSale, deleteSale };
+  return { sales, loading, recordSale, recordMultiSale, deleteSale };
 }
 
 // Convert snake_case DB fields to the camelCase shape the rest of the app expects
@@ -85,5 +118,6 @@ function mapSalesFromDb(rows) {
     date: s.date,
     time: s.time,
     createdAt: s.created_at,
+    transactionId: s.transaction_id,
   }));
 }
