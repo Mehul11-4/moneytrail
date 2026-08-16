@@ -23,6 +23,8 @@ import Inventory from "./pages/business/Inventory";
 import JamaKharch from "./pages/business/JamaKharch";
 import LedgerCategory from "./pages/business/LedgerCategory";
 import ProfitLoss from "./pages/business/ProfitLoss";
+import LoanTaken from "./pages/business/LoanTaken";
+import UdhaarGiven from "./pages/business/UdhaarGiven";
 import BusinessSettings from "./pages/business/BusinessSettings";
 import BusinessBottomNav from "./components/BusinessBottomNav";
 
@@ -134,6 +136,22 @@ function AnimatedRoutes() {
           element={
             <PageWrapper>
               <ProfitLoss />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/business/loan-taken"
+          element={
+            <PageWrapper>
+              <LoanTaken />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/business/udhaar-given"
+          element={
+            <PageWrapper>
+              <UdhaarGiven />
             </PageWrapper>
           }
         />
