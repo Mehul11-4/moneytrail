@@ -33,6 +33,7 @@ function Counter() {
   const [saleDate, setSaleDate] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [customTotal, setCustomTotal] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -50,11 +51,19 @@ function Counter() {
     );
   }, [products, productSearch]);
 
-  const total = useMemo(() => {
+  const calculatedTotal = useMemo(() => {
     const q = parseFloat(qty);
     if (!selectedProduct || !q || q <= 0) return 0;
     return q * selectedProduct.mrp_per_qty;
   }, [selectedProduct, qty]);
+
+  const total = useMemo(() => {
+    if (customTotal.trim() !== "") {
+      const custom = parseFloat(customTotal);
+      return isNaN(custom) ? 0 : custom;
+    }
+    return calculatedTotal;
+  }, [customTotal, calculatedTotal]);
 
   const resetForm = () => {
     setProductId("");
@@ -63,6 +72,7 @@ function Counter() {
     setCustomerName("");
     setCustomerPhone("");
     setSaleDate(new Date().toISOString().split("T")[0]);
+    setCustomTotal("");
     setError("");
   };
 
@@ -74,6 +84,12 @@ function Counter() {
 
     if (!selectedProduct) return setError("Select a product.");
     if (!q || q <= 0) return setError("Enter a valid quantity.");
+    if (
+      customTotal.trim() !== "" &&
+      (isNaN(parseFloat(customTotal)) || parseFloat(customTotal) <= 0)
+    ) {
+      return setError("Enter a valid custom total, or leave it blank.");
+    }
     if (!selectedProduct.is_static && q > selectedProduct.stock_qty) {
       return setError(
         `Only ${selectedProduct.stock_qty} pcs in stock — cannot sell ${q}.`,
@@ -94,7 +110,7 @@ function Counter() {
       qtySold: q,
       pricePerQtyAtSale: selectedProduct.price_per_qty,
       mrpAtSale: selectedProduct.mrp_per_qty,
-      total: q * selectedProduct.mrp_per_qty,
+      total,
       paymentMode,
       customerName: paymentMode === "Udhaar" ? customerName.trim() : null,
       customerPhone: paymentMode === "Udhaar" ? customerPhone.trim() : null,
@@ -191,10 +207,23 @@ function Counter() {
 
           {selectedProduct && (
             <p className="text-xs text-textSecondary">
-              MRP: ₹{selectedProduct.mrp_per_qty.toFixed(2)}/pc · In stock:{" "}
-              {selectedProduct.stock_qty} pcs
+              MRP: ₹{selectedProduct.mrp_per_qty.toFixed(2)}/pc
+              {!selectedProduct.is_static
+                ? ` · In stock: ${selectedProduct.stock_qty} pcs`
+                : ""}
             </p>
           )}
+
+          <Input
+            label={`Custom Total (optional — leave blank for ₹${calculatedTotal.toFixed(2)})`}
+            name="customTotal"
+            type="number"
+            placeholder={
+              calculatedTotal > 0 ? calculatedTotal.toFixed(2) : "e.g. 140"
+            }
+            value={customTotal}
+            onChange={(e) => setCustomTotal(e.target.value)}
+          />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-textSecondary font-medium">
