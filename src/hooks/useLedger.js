@@ -7,7 +7,7 @@ export function useLedger() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { addProduct, restockProduct } = useProducts();
+  const { addProduct, restockProduct, loadProducts } = useProducts();
 
   const loadEntries = useCallback(async () => {
     if (!user) return;
@@ -130,12 +130,74 @@ export function useLedger() {
     }
   };
 
+  const updateLedgerEntry = async (id, updates) => {
+    const { error } = await supabase
+      .from("ledger_entries")
+      .update(updates)
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase update ledger entry error:", error);
+      throw error;
+    }
+    await loadEntries();
+  };
+
+  // Special case: editing a Purchase Goods entry — recalculates the amount
+  // and adjusts the linked product's stock by the DIFFERENCE in units
+  // (not a full reset), since stock may have already been partially sold
+  // since the original purchase.
+  const updatePurchaseGoods = async (
+    entryId,
+    { productId, oldUnitsPurchased, newUnitsPurchased, date, note },
+  ) => {
+    const { data: product, error: fetchErr } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", productId)
+      .single();
+
+    if (fetchErr) {
+      console.error("Supabase fetch product for update error:", fetchErr);
+      throw fetchErr;
+    }
+
+    const unitDifference = newUnitsPurchased - oldUnitsPurchased;
+    const qtyDifference = unitDifference * product.qty_per_unit;
+    const newStock = Math.max(0, product.stock_qty + qtyDifference);
+    const newAmount = product.unit_purchase_price * newUnitsPurchased;
+
+    const { error: stockErr } = await supabase
+      .from("products")
+      .update({ stock_qty: newStock })
+      .eq("id", productId);
+
+    if (stockErr) {
+      console.error("Supabase adjust stock on edit error:", stockErr);
+      throw stockErr;
+    }
+
+    const productName = product.name;
+    const unitLabel = product.unit_label;
+    const autoDescription = `${productName} — ${newUnitsPurchased} ${unitLabel}${newUnitsPurchased > 1 ? "s" : ""}`;
+    const fullNote = note ? `${autoDescription} (${note})` : autoDescription;
+
+    await updateLedgerEntry(entryId, {
+      amount: newAmount,
+      date,
+      note: fullNote,
+    });
+
+    await loadProducts();
+  };
+
   return {
     entries,
     loading,
     addLedgerEntry,
     addPurchaseGoods,
     deleteLedgerEntry,
+    updateLedgerEntry,
+    updatePurchaseGoods,
   };
 }
 

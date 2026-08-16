@@ -158,6 +158,7 @@ export function useProducts() {
     restockProduct,
     deductStock,
     restoreStockQty,
+    loadProducts,
   };
 }
 

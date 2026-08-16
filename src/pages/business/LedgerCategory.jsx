@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Trash2, Plus, X, Search } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, X, Search, Pencil } from "lucide-react";
 import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -46,8 +46,21 @@ function LedgerCategory() {
     slug === "other-jama" || slug === "other-kharch" ? "Other" : label;
 
   const { sales, deleteSale } = useSales();
-  const { entries, addLedgerEntry, addPurchaseGoods, deleteLedgerEntry } =
-    useLedger();
+  const {
+    entries,
+    loading,
+    addLedgerEntry,
+    addPurchaseGoods,
+    deleteLedgerEntry,
+    updateLedgerEntry,
+    updatePurchaseGoods,
+  } = useLedger();
+  const [editingItem, setEditingItem] = useState(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editUnits, setEditUnits] = useState("");
+  const [editError, setEditError] = useState("");
   const { products, restoreStockQty } = useProducts();
   const { productTypes, addProductType } = useProductTypes();
   const [addingNewType, setAddingNewType] = useState(false);
@@ -578,33 +591,173 @@ function LedgerCategory() {
       {viewingDetail && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]"
-          onClick={() => setViewingDetail(null)}
+          onClick={() => {
+            setViewingDetail(null);
+            setEditingItem(null);
+          }}
         >
           <Card
             className="w-full max-w-sm"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <p className="font-heading font-bold text-lg">Entry Details</p>
+              <p className="font-heading font-bold text-lg">
+                {editingItem ? "Edit Entry" : "Entry Details"}
+              </p>
               <button
-                onClick={() => setViewingDetail(null)}
+                onClick={() => {
+                  setViewingDetail(null);
+                  setEditingItem(null);
+                }}
                 className="text-textSecondary"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex flex-col gap-3">
-              <DetailRow label="Type" value={label} />
-              <DetailRow
-                label="Amount"
-                value={`₹${viewingDetail.amount.toFixed(2)}`}
-              />
-              <DetailRow label="Date" value={formatDate(viewingDetail.date)} />
-              {viewingDetail.time && (
-                <DetailRow label="Time" value={viewingDetail.time} />
-              )}
-              <DetailRow label="Note" value={viewingDetail.note || "—"} />
-            </div>
+
+            {editingItem ? (
+              <div className="flex flex-col gap-3">
+                {slug === "purchase-goods" ? (
+                  <Input
+                    label="Units Purchased"
+                    name="editUnits"
+                    type="number"
+                    value={editUnits}
+                    onChange={(e) => setEditUnits(e.target.value)}
+                  />
+                ) : (
+                  <Input
+                    label="Amount (₹)"
+                    name="editAmount"
+                    type="number"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                  />
+                )}
+                <Input
+                  label="Date"
+                  name="editDate"
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+                <Input
+                  label="Note"
+                  name="editNote"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  placeholder="Any detail"
+                />
+                {editError && (
+                  <p className="text-danger text-sm">{editError}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={async () => {
+                      setEditError("");
+                      try {
+                        if (!editDate) return setEditError("Select a date.");
+
+                        if (slug === "purchase-goods") {
+                          const newUnits = parseFloat(editUnits);
+                          if (!newUnits || newUnits <= 0)
+                            return setEditError("Enter valid units purchased.");
+
+                          const raw = viewingDetail.raw;
+                          // Parse the original units purchased back out of the auto-generated note description
+                          // (we don't store it separately, so we infer it from the amount / product's unit price)
+                          const product = products.find(
+                            (p) => p.id === raw.productId,
+                          );
+                          if (!product)
+                            return setEditError(
+                              "Linked product not found — cannot edit safely.",
+                            );
+                          const oldUnits =
+                            raw.amount / product.unit_purchase_price;
+
+                          await updatePurchaseGoods(raw.id, {
+                            productId: raw.productId,
+                            oldUnitsPurchased: oldUnits,
+                            newUnitsPurchased: newUnits,
+                            date: editDate,
+                            note: editNote,
+                          });
+                        } else {
+                          const numericAmount = parseFloat(editAmount);
+                          if (!numericAmount || numericAmount <= 0)
+                            return setEditError("Enter a valid amount.");
+                          await updateLedgerEntry(viewingDetail.raw.id, {
+                            amount: numericAmount,
+                            date: editDate,
+                            note: editNote,
+                          });
+                        }
+
+                        setViewingDetail(null);
+                        setEditingItem(null);
+                      } catch (err) {
+                        setEditError(err.message || "Failed to save changes.");
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    Save Changes
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEditingItem(null)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <DetailRow label="Type" value={label} />
+                <DetailRow
+                  label="Amount"
+                  value={`₹${viewingDetail.amount.toFixed(2)}`}
+                />
+                <DetailRow
+                  label="Date"
+                  value={formatDate(viewingDetail.date)}
+                />
+                {viewingDetail.time && (
+                  <DetailRow label="Time" value={viewingDetail.time} />
+                )}
+                <DetailRow label="Note" value={viewingDetail.note || "—"} />
+
+                {viewingDetail.kind === "ledger" && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditingItem(viewingDetail);
+                      setEditAmount(viewingDetail.amount.toString());
+                      setEditDate(viewingDetail.date);
+                      setEditNote("");
+                      if (slug === "purchase-goods") {
+                        const product = products.find(
+                          (p) => p.id === viewingDetail.raw.productId,
+                        );
+                        if (product) {
+                          setEditUnits(
+                            (
+                              viewingDetail.amount / product.unit_purchase_price
+                            ).toFixed(0),
+                          );
+                        }
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5"
+                  >
+                    <Pencil className="w-4 h-4" /> Edit
+                  </Button>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       )}
