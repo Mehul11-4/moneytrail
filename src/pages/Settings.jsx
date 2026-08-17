@@ -10,14 +10,12 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { exportData, importData } from "../utils/backup";
 import { useAppMode } from "../context/AppModeContext";
-import { useAuth } from "../context/AuthContext";
-import { RefreshCw, LogOut } from "lucide-react";
+import AccountPanel from "../components/AccountPanel";
+import { RefreshCw } from "lucide-react";
 
 function Settings() {
   const { goToSelector } = useAppMode();
-  const { signOut, user, updateEmail, updatePassword } = useAuth();
   const fileInputRef = useRef(null);
-  const [newEmail, setNewEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -117,6 +115,7 @@ function Settings() {
 
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
+      <AccountPanel />
       <div className="flex items-center gap-3 mt-6 mb-6">
         <SettingsIcon className="w-7 h-7 text-primary" />
         <h1 className="text-2xl font-heading font-bold">Settings</h1>
@@ -181,74 +180,6 @@ function Settings() {
           className="w-full flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Switch Mode
-        </Button>
-      </Card>
-
-      <Card className="mb-4">
-        <p className="text-sm font-medium mb-1">Account</p>
-        <p className="text-xs text-textSecondary mb-3">
-          Logged in as {user?.email}
-        </p>
-
-        <form onSubmit={handleUpdateEmail} className="flex flex-col gap-2 mb-4">
-          <Input
-            label="Change Email"
-            name="newEmail"
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="your-real-email@example.com"
-          />
-          {emailStatus && (
-            <p
-              className={`text-xs ${emailStatus.type === "success" ? "text-success" : "text-danger"}`}
-            >
-              {emailStatus.message}
-            </p>
-          )}
-          <Button type="submit" variant="secondary">
-            Update Email
-          </Button>
-        </form>
-
-        <form
-          onSubmit={handleUpdatePassword}
-          className="flex flex-col gap-2 mb-4 pt-4 border-t border-white/5"
-        >
-          <Input
-            label="New Password"
-            name="newPassword"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="At least 6 characters"
-          />
-          <Input
-            label="Confirm New Password"
-            name="confirmPassword"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Re-enter new password"
-          />
-          {passwordStatus && (
-            <p
-              className={`text-xs ${passwordStatus.type === "success" ? "text-success" : "text-danger"}`}
-            >
-              {passwordStatus.message}
-            </p>
-          )}
-          <Button type="submit" variant="secondary">
-            Update Password
-          </Button>
-        </form>
-
-        <Button
-          variant="danger"
-          onClick={signOut}
-          className="w-full flex items-center justify-center gap-2"
-        >
-          <LogOut className="w-4 h-4" /> Log Out
         </Button>
       </Card>
 
