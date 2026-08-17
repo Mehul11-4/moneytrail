@@ -63,7 +63,7 @@ function AccountPanel() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-3 right-3 z-50 bg-surface border border-white/10 rounded-control p-2"
+        className="fixed top-3 right-14 z-50 bg-surface border border-white/10 rounded-control p-2"
       >
         <UserCircle className="w-5 h-5 text-textPrimary" />
       </button>
