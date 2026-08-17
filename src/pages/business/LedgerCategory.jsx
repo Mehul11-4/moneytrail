@@ -625,6 +625,40 @@ function LedgerCategory() {
                       <p className="font-heading font-bold text-success">
                         +₹{block.total.toFixed(2)}
                       </p>
+                      {confirmDelete && confirmDelete.blockKey === block.key ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={async () => {
+                              for (const item of block.items) {
+                                await deleteSale(item.raw.id);
+                                await restoreStockQty(
+                                  item.raw.productId,
+                                  item.raw.qtySold,
+                                );
+                              }
+                              setConfirmDelete(null);
+                            }}
+                            className="text-danger text-xs font-medium"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="text-textSecondary text-xs"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            setConfirmDelete({ blockKey: block.key })
+                          }
+                          className="text-textSecondary hover:text-danger"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -787,19 +821,55 @@ function LedgerCategory() {
                             ₹{item.raw.total.toFixed(2)}
                           </p>
                         </div>
-                        {viewingDetail.block.items.length === 1 && (
-                          <button
-                            onClick={() => {
-                              setEditingSaleId(item.raw.id);
-                              setEditSaleQty(item.raw.qtySold.toString());
-                              setEditSaleDate(item.raw.date);
-                              setEditError("");
-                            }}
-                            className="text-textSecondary hover:text-primary"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {viewingDetail.block.items.length === 1 && (
+                            <button
+                              onClick={() => {
+                                setEditingSaleId(item.raw.id);
+                                setEditSaleQty(item.raw.qtySold.toString());
+                                setEditSaleDate(item.raw.date);
+                                setEditError("");
+                              }}
+                              className="text-textSecondary hover:text-primary"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                          {confirmDelete &&
+                          confirmDelete.saleItemId === item.raw.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={async () => {
+                                  await deleteSale(item.raw.id);
+                                  await restoreStockQty(
+                                    item.raw.productId,
+                                    item.raw.qtySold,
+                                  );
+                                  setConfirmDelete(null);
+                                  setViewingDetail(null);
+                                }}
+                                className="text-danger text-xs font-medium"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="text-textSecondary text-xs"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                setConfirmDelete({ saleItemId: item.raw.id })
+                              }
+                              className="text-textSecondary hover:text-danger"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </Card>

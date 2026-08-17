@@ -455,26 +455,41 @@ function Inventory() {
               <div className="flex flex-col gap-3">
                 <DetailRow label="Section" value={selected.section} />
                 <DetailRow label="Name" value={selected.name} />
-                <DetailRow
-                  label="Unit"
-                  value={`1 ${selected.unit_label} = ${selected.qty_per_unit} pcs`}
-                />
-                <DetailRow
-                  label="Purchase Price per Unit"
-                  value={`₹${selected.unit_purchase_price.toFixed(2)}`}
-                />
-                <DetailRow
-                  label="Cost per Piece"
-                  value={`₹${selected.price_per_qty.toFixed(2)}`}
-                />
-                <DetailRow
-                  label="MRP per Piece"
-                  value={`₹${selected.mrp_per_qty.toFixed(2)}`}
-                />
-                <DetailRow
-                  label="Current Stock"
-                  value={`${selected.stock_qty} pcs`}
-                />
+                {selected.is_static ? (
+                  <>
+                    <DetailRow
+                      label="Cost Price"
+                      value={`₹${selected.price_per_qty.toFixed(2)}`}
+                    />
+                    <DetailRow
+                      label="MRP"
+                      value={`₹${selected.mrp_per_qty.toFixed(2)}`}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <DetailRow
+                      label="Unit"
+                      value={`1 ${selected.unit_label} = ${selected.qty_per_unit} pcs`}
+                    />
+                    <DetailRow
+                      label="Purchase Price per Unit"
+                      value={`₹${selected.unit_purchase_price.toFixed(2)}`}
+                    />
+                    <DetailRow
+                      label="Cost per Piece"
+                      value={`₹${selected.price_per_qty.toFixed(2)}`}
+                    />
+                    <DetailRow
+                      label="MRP per Piece"
+                      value={`₹${selected.mrp_per_qty.toFixed(2)}`}
+                    />
+                    <DetailRow
+                      label="Current Stock"
+                      value={`${selected.stock_qty} pcs`}
+                    />
+                  </>
+                )}
                 <DetailRow
                   label="Added On"
                   value={new Date(selected.created_at).toLocaleDateString(
