@@ -15,6 +15,7 @@ import Button from "../../components/Button";
 import Input from "../../components/Input";
 import { useProducts } from "../../hooks/useProducts";
 import { useSales } from "../../hooks/useSales";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { formatDate } from "../../utils/formatDate";
 
 const paymentModes = [
@@ -62,17 +63,32 @@ function Counter() {
   }, [todaySales]);
 
   // ---- Cart state ----
-  const [cart, setCart] = useState([]); // { productId, productName, qty, mrpPerQty, pricePerQty, isStatic, customTotal }
-  const [productId, setProductId] = useState("");
-  const [qty, setQty] = useState("");
-  const [itemCustomTotal, setItemCustomTotal] = useState("");
+  const [cart, setCart] = usePersistedState("cbn_cart", []);
+  const [productId, setProductId] = usePersistedState("cbn_cart_productId", "");
+  const [qty, setQty] = usePersistedState("cbn_cart_qty", "");
+  const [itemCustomTotal, setItemCustomTotal] = usePersistedState(
+    "cbn_cart_itemCustomTotal",
+    "",
+  );
   const [productSearch, setProductSearch] = useState("");
   const [showProductList, setShowProductList] = useState(false);
 
-  const [paymentMode, setPaymentMode] = useState("Cash");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [saleDate, setSaleDate] = useState(todayStr);
+  const [paymentMode, setPaymentMode] = usePersistedState(
+    "cbn_cart_paymentMode",
+    "Cash",
+  );
+  const [customerName, setCustomerName] = usePersistedState(
+    "cbn_cart_customerName",
+    "",
+  );
+  const [customerPhone, setCustomerPhone] = usePersistedState(
+    "cbn_cart_customerPhone",
+    "",
+  );
+  const [saleDate, setSaleDate] = usePersistedState(
+    "cbn_cart_saleDate",
+    todayStr,
+  );
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 

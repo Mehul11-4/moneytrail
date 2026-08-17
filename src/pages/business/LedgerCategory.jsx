@@ -9,6 +9,7 @@ import { useSales } from "../../hooks/useSales";
 import { useLedger } from "../../hooks/useLedger";
 import { useProducts } from "../../hooks/useProducts";
 import { useProductTypes } from "../../hooks/useProductTypes";
+import { usePersistedState } from "../../hooks/usePersistedState";
 const LABELS = {
   sale: "Sale",
   capital: "Capital",
@@ -45,7 +46,10 @@ function LedgerCategory() {
   const subtypeName =
     slug === "other-jama" || slug === "other-kharch" ? "Other" : label;
 
-  const { sales, deleteSale } = useSales();
+  const { sales, deleteSale, updateSale } = useSales();
+  const [editingSaleId, setEditingSaleId] = useState(null);
+  const [editSaleQty, setEditSaleQty] = useState("");
+  const [editSaleDate, setEditSaleDate] = useState("");
   const {
     entries,
     loading,
@@ -67,26 +71,52 @@ function LedgerCategory() {
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeError, setNewTypeError] = useState("");
 
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [note, setNote] = useState("");
+  const [amount, setAmount] = usePersistedState(`ledger_${slug}_amount`, "");
+  const [date, setDate] = usePersistedState(
+    `ledger_${slug}_date`,
+    new Date().toISOString().split("T")[0],
+  );
+  const [note, setNote] = usePersistedState(`ledger_${slug}_note`, "");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [viewingDetail, setViewingDetail] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Purchase Goods specific
-  const [purchaseMode, setPurchaseMode] = useState("existing");
-  const [selectedProductId, setSelectedProductId] = useState("");
+  // Only persist state for the purchase-goods form specifically, keyed by
+  // slug so Rent/Electricity/etc. forms never collide with each other
+  const [purchaseMode, setPurchaseMode] = usePersistedState(
+    `ledger_${slug}_purchaseMode`,
+    "existing",
+  );
+  const [selectedProductId, setSelectedProductId] = usePersistedState(
+    `ledger_${slug}_selectedProductId`,
+    "",
+  );
   const [restockSearch, setRestockSearch] = useState("");
   const [showRestockList, setShowRestockList] = useState(false);
-  const [unitsPurchased, setUnitsPurchased] = useState("");
-  const [newSection, setNewSection] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newUnitLabel, setNewUnitLabel] = useState("");
-  const [newQtyPerUnit, setNewQtyPerUnit] = useState("");
-  const [newUnitPrice, setNewUnitPrice] = useState("");
-  const [newMrp, setNewMrp] = useState("");
+  const [unitsPurchased, setUnitsPurchased] = usePersistedState(
+    `ledger_${slug}_unitsPurchased`,
+    "",
+  );
+  const [newSection, setNewSection] = usePersistedState(
+    `ledger_${slug}_newSection`,
+    "",
+  );
+  const [newName, setNewName] = usePersistedState(`ledger_${slug}_newName`, "");
+  const [newUnitLabel, setNewUnitLabel] = usePersistedState(
+    `ledger_${slug}_newUnitLabel`,
+    "",
+  );
+  const [newQtyPerUnit, setNewQtyPerUnit] = usePersistedState(
+    `ledger_${slug}_newQtyPerUnit`,
+    "",
+  );
+  const [newUnitPrice, setNewUnitPrice] = usePersistedState(
+    `ledger_${slug}_newUnitPrice`,
+    "",
+  );
+  const [newMrp, setNewMrp] = usePersistedState(`ledger_${slug}_newMrp`, "");
   // Unfiltered list — used to decide whether to show the search bar at all
   const allItems = useMemo(() => {
     if (slug === "sale") {
@@ -123,6 +153,39 @@ function LedgerCategory() {
       (item.note || "").toLowerCase().includes(q),
     );
   }, [allItems, searchQuery]);
+
+  // For the Sale category only: group items by transaction (multi-item carts
+  // show as one block), then group those blocks by date (newest date first),
+  // with the date shown once as a header instead of repeated per row.
+  const saleDateGroups = useMemo(() => {
+    if (slug !== "sale") return [];
+
+    const byTransaction = {};
+    const order = [];
+    items.forEach((item) => {
+      const key = item.raw.transactionId || item.id;
+      if (!byTransaction[key]) {
+        byTransaction[key] = { key, date: item.date, items: [], total: 0 };
+        order.push(key);
+      }
+      byTransaction[key].items.push(item);
+      byTransaction[key].total += item.amount;
+    });
+    const blocks = order.map((k) => byTransaction[k]);
+
+    const byDate = {};
+    const dateOrder = [];
+    blocks.forEach((block) => {
+      if (!byDate[block.date]) {
+        byDate[block.date] = [];
+        dateOrder.push(block.date);
+      }
+      byDate[block.date].push(block);
+    });
+    dateOrder.sort((a, b) => (a < b ? 1 : -1)); // newest date first
+
+    return dateOrder.map((date) => ({ date, blocks: byDate[date] }));
+  }, [items, slug]);
 
   const total = useMemo(() => items.reduce((s, i) => s + i.amount, 0), [items]);
 
@@ -529,63 +592,98 @@ function LedgerCategory() {
           />
         </div>
       )}
-
       <p className="text-sm font-medium text-textSecondary mb-2">
         {label} Entries
       </p>
       {items.length === 0 && (
         <p className="text-textSecondary text-sm">No entries yet.</p>
       )}
-      <div className="flex flex-col gap-2">
-        {items.map((item) => (
-          <Card key={`${item.kind}-${item.id}`}>
-            <button
-              onClick={() => setViewingDetail(item)}
-              className="text-left w-full"
-            >
-              <p className="text-sm text-textSecondary">{item.note}</p>
-              <p className="text-xs text-textSecondary/70 mt-0.5">
-                {formatDate(item.date)}
-                {item.time ? ` · ${item.time}` : ""}
+
+      {slug === "sale" ? (
+        <div className="flex flex-col gap-4">
+          {saleDateGroups.map((group) => (
+            <div key={group.date}>
+              <p className="text-xs font-medium text-textSecondary mb-2">
+                {formatDate(group.date)}
               </p>
-            </button>
-            <div className="flex justify-end items-center gap-3 mt-1">
-              <p
-                className={`font-heading font-bold ${type === "jama" ? "text-success" : "text-danger"}`}
-              >
-                {type === "jama" ? "+" : "−"}₹{item.amount.toFixed(2)}
-              </p>
-              {confirmDelete &&
-              confirmDelete.item.id === item.id &&
-              confirmDelete.kind === item.kind ? (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleConfirmDelete}
-                    className="text-danger text-xs font-medium"
-                  >
-                    Yes
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(null)}
-                    className="text-textSecondary text-xs"
-                  >
-                    No
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() =>
-                    setConfirmDelete({ kind: item.kind, item: item.raw })
-                  }
-                  className="text-textSecondary hover:text-danger"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <div className="flex flex-col gap-2">
+                {group.blocks.map((block) => (
+                  <Card key={block.key}>
+                    <button
+                      onClick={() =>
+                        setViewingDetail({ kind: "sale-block", block })
+                      }
+                      className="text-left w-full"
+                    >
+                      {block.items.map((item) => (
+                        <p key={item.id} className="text-sm text-textSecondary">
+                          {item.note}
+                        </p>
+                      ))}
+                    </button>
+                    <div className="flex justify-end items-center gap-3 mt-1">
+                      <p className="font-heading font-bold text-success">
+                        +₹{block.total.toFixed(2)}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((item) => (
+            <Card key={`${item.kind}-${item.id}`}>
+              <button
+                onClick={() => setViewingDetail(item)}
+                className="text-left w-full"
+              >
+                <p className="text-sm text-textSecondary">{item.note}</p>
+                <p className="text-xs text-textSecondary/70 mt-0.5">
+                  {formatDate(item.date)}
+                  {item.time ? ` · ${item.time}` : ""}
+                </p>
+              </button>
+              <div className="flex justify-end items-center gap-3 mt-1">
+                <p
+                  className={`font-heading font-bold ${type === "jama" ? "text-success" : "text-danger"}`}
+                >
+                  {type === "jama" ? "+" : "−"}₹{item.amount.toFixed(2)}
+                </p>
+                {confirmDelete &&
+                confirmDelete.item.id === item.id &&
+                confirmDelete.kind === item.kind ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleConfirmDelete}
+                      className="text-danger text-xs font-medium"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="text-textSecondary text-xs"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() =>
+                      setConfirmDelete({ kind: item.kind, item: item.raw })
+                    }
+                    className="text-textSecondary hover:text-danger"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Detail modal */}
       {viewingDetail && (
@@ -615,7 +713,105 @@ function LedgerCategory() {
               </button>
             </div>
 
-            {editingItem ? (
+            {viewingDetail?.kind === "sale-block" ? (
+              <div className="flex flex-col gap-3">
+                <DetailRow
+                  label="Date"
+                  value={formatDate(viewingDetail.block.date)}
+                />
+                {viewingDetail.block.items.map((item) => (
+                  <Card key={item.id} className="!p-2.5">
+                    {editingSaleId === item.raw.id ? (
+                      <div className="flex flex-col gap-2">
+                        <Input
+                          label="Quantity"
+                          name="editSaleQty"
+                          type="number"
+                          value={editSaleQty}
+                          onChange={(e) => setEditSaleQty(e.target.value)}
+                        />
+                        <Input
+                          label="Date"
+                          name="editSaleDate"
+                          type="date"
+                          value={editSaleDate}
+                          onChange={(e) => setEditSaleDate(e.target.value)}
+                        />
+                        {editError && (
+                          <p className="text-danger text-xs">{editError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="primary"
+                            onClick={async () => {
+                              setEditError("");
+                              const newQty = parseFloat(editSaleQty);
+                              if (!newQty || newQty <= 0)
+                                return setEditError("Enter a valid quantity.");
+                              if (!editSaleDate)
+                                return setEditError("Select a date.");
+                              try {
+                                await updateSale(
+                                  item.raw,
+                                  newQty,
+                                  editSaleDate,
+                                );
+                                setEditingSaleId(null);
+                                setViewingDetail(null);
+                              } catch (err) {
+                                setEditError(
+                                  err.message || "Failed to update sale.",
+                                );
+                              }
+                            }}
+                            className="flex-1"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => setEditingSaleId(null)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {item.raw.productName} × {item.raw.qtySold}
+                          </p>
+                          <p className="text-xs text-textSecondary">
+                            ₹{item.raw.total.toFixed(2)}
+                          </p>
+                        </div>
+                        {viewingDetail.block.items.length === 1 && (
+                          <button
+                            onClick={() => {
+                              setEditingSaleId(item.raw.id);
+                              setEditSaleQty(item.raw.qtySold.toString());
+                              setEditSaleDate(item.raw.date);
+                              setEditError("");
+                            }}
+                            className="text-textSecondary hover:text-primary"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                ))}
+                {viewingDetail.block.items.length > 1 && (
+                  <p className="text-[10px] text-textSecondary/70">
+                    Multi-item sales can't be edited here — delete and re-enter
+                    if needed.
+                  </p>
+                )}
+              </div>
+            ) : editingItem ? (
               <div className="flex flex-col gap-3">
                 {slug === "purchase-goods" ? (
                   <Input

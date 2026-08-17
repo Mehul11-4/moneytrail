@@ -27,6 +27,7 @@ import LoanTaken from "./pages/business/LoanTaken";
 import UdhaarGiven from "./pages/business/UdhaarGiven";
 import BusinessSettings from "./pages/business/BusinessSettings";
 import BusinessBottomNav from "./components/BusinessBottomNav";
+import BusinessTopBar from "./components/BusinessTopBar";
 
 import ModeSwitcher from "./components/ModeSwitcher";
 
@@ -192,6 +193,7 @@ function AppShell() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
+          {mode === "business" && <BusinessTopBar />}
           <AnimatedRoutes />
           {mode === "personal" ? <BottomNav /> : <BusinessBottomNav />}
         </motion.div>

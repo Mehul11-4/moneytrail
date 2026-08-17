@@ -71,6 +71,23 @@ export function useProducts() {
       .select("*")
       .eq("id", id)
       .single();
+
+    if (existing.is_static) {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          price_per_qty: updates.costPrice,
+          mrp_per_qty: updates.mrpPerQty,
+        })
+        .eq("id", id);
+      if (error) {
+        console.error("Supabase update static product error:", error);
+      } else {
+        await loadProducts();
+      }
+      return;
+    }
+
     const merged = { ...existing, ...mapUpdatesToDb(updates) };
     const pricePerQty = merged.unit_purchase_price / merged.qty_per_unit;
 

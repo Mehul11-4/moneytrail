@@ -83,14 +83,18 @@ function Inventory() {
   const openDetail = (p) => {
     setSelected(p);
     setIsEditing(false);
-    setForm({
-      name: p.name,
-      unitLabel: p.unit_label,
-      qtyPerUnit: p.qty_per_unit,
-      unitPurchasePrice: p.unit_purchase_price,
-      mrpPerQty: p.mrp_per_qty,
-      stockQty: p.stock_qty,
-    });
+    if (p.is_static) {
+      setForm({ costPrice: p.price_per_qty, mrpPerQty: p.mrp_per_qty });
+    } else {
+      setForm({
+        name: p.name,
+        unitLabel: p.unit_label,
+        qtyPerUnit: p.qty_per_unit,
+        unitPurchasePrice: p.unit_purchase_price,
+        mrpPerQty: p.mrp_per_qty,
+        stockQty: p.stock_qty,
+      });
+    }
     setError("");
   };
   const closeDetail = () => {
@@ -106,6 +110,19 @@ function Inventory() {
 
   const handleSave = async () => {
     setError("");
+
+    if (selected.is_static) {
+      const cost = parseFloat(form.costPrice);
+      const mrp = parseFloat(form.mrpPerQty);
+      if (!cost || cost <= 0) return setError("Enter a valid cost price.");
+      if (!mrp || mrp <= 0) return setError("Enter a valid MRP.");
+
+      await updateProduct(selected.id, { costPrice: cost, mrpPerQty: mrp });
+      setIsEditing(false);
+      closeDetail();
+      return;
+    }
+
     const qty = parseFloat(form.qtyPerUnit);
     const unitPrice = parseFloat(form.unitPurchasePrice);
     const mrp = parseFloat(form.mrpPerQty);
@@ -337,59 +354,85 @@ function Inventory() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-
             {isEditing ? (
               <div className="flex flex-col gap-3">
-                <Input
-                  label="Product Name"
-                  name="name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-                <Input
-                  label="Unit Label"
-                  name="unitLabel"
-                  value={form.unitLabel}
-                  onChange={(e) =>
-                    setForm({ ...form, unitLabel: e.target.value })
-                  }
-                />
-                <Input
-                  label="Qty per Unit"
-                  name="qtyPerUnit"
-                  type="number"
-                  value={form.qtyPerUnit}
-                  onChange={(e) =>
-                    setForm({ ...form, qtyPerUnit: e.target.value })
-                  }
-                />
-                <Input
-                  label="Purchase Price per Unit (₹)"
-                  name="unitPurchasePrice"
-                  type="number"
-                  value={form.unitPurchasePrice}
-                  onChange={(e) =>
-                    setForm({ ...form, unitPurchasePrice: e.target.value })
-                  }
-                />
-                <Input
-                  label="MRP per Piece (₹)"
-                  name="mrpPerQty"
-                  type="number"
-                  value={form.mrpPerQty}
-                  onChange={(e) =>
-                    setForm({ ...form, mrpPerQty: e.target.value })
-                  }
-                />
-                <Input
-                  label="Current Stock (pcs)"
-                  name="stockQty"
-                  type="number"
-                  value={form.stockQty}
-                  onChange={(e) =>
-                    setForm({ ...form, stockQty: e.target.value })
-                  }
-                />
+                {selected.is_static ? (
+                  <>
+                    <Input
+                      label="Cost Price (₹)"
+                      name="costPrice"
+                      type="number"
+                      value={form.costPrice}
+                      onChange={(e) =>
+                        setForm({ ...form, costPrice: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="MRP (₹)"
+                      name="mrpPerQty"
+                      type="number"
+                      value={form.mrpPerQty}
+                      onChange={(e) =>
+                        setForm({ ...form, mrpPerQty: e.target.value })
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      label="Product Name"
+                      name="name"
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Unit Label"
+                      name="unitLabel"
+                      value={form.unitLabel}
+                      onChange={(e) =>
+                        setForm({ ...form, unitLabel: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Qty per Unit"
+                      name="qtyPerUnit"
+                      type="number"
+                      value={form.qtyPerUnit}
+                      onChange={(e) =>
+                        setForm({ ...form, qtyPerUnit: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Purchase Price per Unit (₹)"
+                      name="unitPurchasePrice"
+                      type="number"
+                      value={form.unitPurchasePrice}
+                      onChange={(e) =>
+                        setForm({ ...form, unitPurchasePrice: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="MRP per Piece (₹)"
+                      name="mrpPerQty"
+                      type="number"
+                      value={form.mrpPerQty}
+                      onChange={(e) =>
+                        setForm({ ...form, mrpPerQty: e.target.value })
+                      }
+                    />
+                    <Input
+                      label="Current Stock (pcs)"
+                      name="stockQty"
+                      type="number"
+                      value={form.stockQty}
+                      onChange={(e) =>
+                        setForm({ ...form, stockQty: e.target.value })
+                      }
+                    />
+                  </>
+                )}
                 {error && <p className="text-danger text-sm">{error}</p>}
                 <div className="flex gap-2">
                   <Button

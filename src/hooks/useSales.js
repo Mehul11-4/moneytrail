@@ -99,7 +99,47 @@ export function useSales() {
     }
   };
 
-  return { sales, loading, recordSale, recordMultiSale, deleteSale };
+  // Edit a SINGLE-ITEM sale's quantity and/or date. Recalculates total using
+  // the original MRP (custom-total overrides are not preserved through an
+  // edit — re-enter a custom price by deleting and re-adding if needed).
+  // Multi-item cart sales are not editable here — delete and re-enter instead.
+  const updateSale = async (sale, newQty, newDate) => {
+    const qtyDiff = newQty - sale.qtySold;
+    if (qtyDiff !== 0) {
+      const { data: product } = await supabase
+        .from("products")
+        .select("stock_qty, is_static")
+        .eq("id", sale.productId)
+        .single();
+      if (product && !product.is_static) {
+        const newStock = Math.max(0, product.stock_qty - qtyDiff);
+        await supabase
+          .from("products")
+          .update({ stock_qty: newStock })
+          .eq("id", sale.productId);
+      }
+    }
+
+    const newTotal = sale.mrpAtSale * newQty;
+    const { error } = await supabase
+      .from("sales")
+      .update({ qty_sold: newQty, total: newTotal, date: newDate })
+      .eq("id", sale.id);
+
+    if (error) {
+      console.error("Supabase update sale error:", error);
+      throw error;
+    }
+    await loadSales();
+  };
+  return {
+    sales,
+    loading,
+    recordSale,
+    recordMultiSale,
+    deleteSale,
+    updateSale,
+  };
 }
 
 // Convert snake_case DB fields to the camelCase shape the rest of the app expects
