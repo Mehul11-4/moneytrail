@@ -25,7 +25,7 @@ function Input({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
-        className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm placeholder:text-textSecondary/50 focus:outline-none focus:border-primary transition-colors"
+        className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm placeholder:text-textSecondary/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-150"
       />
     </div>
   );
