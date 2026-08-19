@@ -13,6 +13,7 @@ import {
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import { useProducts } from "../../hooks/useProducts";
 import { useProductTypes } from "../../hooks/useProductTypes";
 
@@ -236,7 +237,7 @@ function Inventory() {
         </Card>
       )}
 
-      {loading && <p className="text-textSecondary text-sm">Loading...</p>}
+      {loading && <LoadingSpinner label="Loading inventory..." />}
       {!loading && products.length === 0 && (
         <p className="text-textSecondary text-sm">
           No products yet. Log a "Purchase Goods" entry in Jama-Kharch to add
@@ -276,10 +277,10 @@ function Inventory() {
                   <button
                     key={p.id}
                     onClick={() => openDetail(p)}
-                    className="text-left"
+                    className="text-left w-full"
                   >
                     <Card
-                      key={p.id}
+                      animate
                       className={
                         !p.is_static && isLow ? "border-warning/40" : ""
                       }
