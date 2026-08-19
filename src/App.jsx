@@ -28,6 +28,7 @@ import UdhaarGiven from "./pages/business/UdhaarGiven";
 import BusinessSettings from "./pages/business/BusinessSettings";
 import BusinessBottomNav from "./components/BusinessBottomNav";
 import BusinessTopBar from "./components/BusinessTopBar";
+import PersonalTopBar from "./components/PersonalTopBar";
 
 import ModeSwitcher from "./components/ModeSwitcher";
 
@@ -194,6 +195,7 @@ function AppShell() {
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
           {mode === "business" && <BusinessTopBar />}
+          {mode === "personal" && <PersonalTopBar />}
           <AnimatedRoutes />
           {mode === "personal" ? <BottomNav /> : <BusinessBottomNav />}
         </motion.div>
