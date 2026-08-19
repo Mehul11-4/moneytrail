@@ -2,10 +2,10 @@ import { NavLink } from "react-router-dom";
 import { PlusCircle, List, Wallet, LayoutDashboard } from "lucide-react";
 
 const navItems = [
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/", icon: PlusCircle, label: "Add" },
   { to: "/expenses", icon: List, label: "Expenses" },
   { to: "/balance", icon: Wallet, label: "Balance" },
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
 ];
 
 function BottomNav() {

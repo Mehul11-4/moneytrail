@@ -601,70 +601,82 @@ function LedgerCategory() {
 
       {slug === "sale" ? (
         <div className="flex flex-col gap-4">
-          {saleDateGroups.map((group) => (
-            <div key={group.date}>
-              <p className="text-xs font-medium text-textSecondary mb-2">
-                {formatDate(group.date)}
-              </p>
-              <div className="flex flex-col gap-2">
-                {group.blocks.map((block) => (
-                  <Card key={block.key}>
-                    <button
-                      onClick={() =>
-                        setViewingDetail({ kind: "sale-block", block })
-                      }
-                      className="text-left w-full"
-                    >
-                      {block.items.map((item) => (
-                        <p key={item.id} className="text-sm text-textSecondary">
-                          {item.note}
+          {saleDateGroups.map((group) => {
+            const dayTotal = group.blocks.reduce((sum, b) => sum + b.total, 0);
+            return (
+              <div key={group.date}>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs font-medium text-textSecondary">
+                    {formatDate(group.date)}
+                  </p>
+                  <p className="text-xs font-bold text-success">
+                    ₹{dayTotal.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {group.blocks.map((block) => (
+                    <Card key={block.key}>
+                      <button
+                        onClick={() =>
+                          setViewingDetail({ kind: "sale-block", block })
+                        }
+                        className="text-left w-full"
+                      >
+                        {block.items.map((item) => (
+                          <p
+                            key={item.id}
+                            className="text-sm text-textSecondary"
+                          >
+                            {item.note}
+                          </p>
+                        ))}
+                      </button>
+                      <div className="flex justify-end items-center gap-3 mt-1">
+                        <p className="font-heading font-bold text-success">
+                          +₹{block.total.toFixed(2)}
                         </p>
-                      ))}
-                    </button>
-                    <div className="flex justify-end items-center gap-3 mt-1">
-                      <p className="font-heading font-bold text-success">
-                        +₹{block.total.toFixed(2)}
-                      </p>
-                      {confirmDelete && confirmDelete.blockKey === block.key ? (
-                        <div className="flex items-center gap-1">
+                        {confirmDelete &&
+                        confirmDelete.blockKey === block.key ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={async () => {
+                                for (const item of block.items) {
+                                  await deleteSale(item.raw.id);
+                                  await restoreStockQty(
+                                    item.raw.productId,
+                                    item.raw.qtySold,
+                                  );
+                                }
+                                setConfirmDelete(null);
+                              }}
+                              className="text-danger text-xs font-medium"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-textSecondary text-xs"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={async () => {
-                              for (const item of block.items) {
-                                await deleteSale(item.raw.id);
-                                await restoreStockQty(
-                                  item.raw.productId,
-                                  item.raw.qtySold,
-                                );
-                              }
-                              setConfirmDelete(null);
-                            }}
-                            className="text-danger text-xs font-medium"
+                            onClick={() =>
+                              setConfirmDelete({ blockKey: block.key })
+                            }
+                            className="text-textSecondary hover:text-danger"
                           >
-                            Yes
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setConfirmDelete(null)}
-                            className="text-textSecondary text-xs"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            setConfirmDelete({ blockKey: block.key })
-                          }
-                          className="text-textSecondary hover:text-danger"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </Card>
-                ))}
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col gap-2">

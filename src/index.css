@@ -6,10 +6,35 @@ html {
   font-size: 18px;
 }
 
+:root,
+.theme-dark {
+  --color-background: #0a0a0f;
+  --color-surface: #15151e;
+  --color-primary: #10b981;
+  --color-secondary: #6366f1;
+  --color-textPrimary: #f4f4f5;
+  --color-textSecondary: #9ca3af;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+}
+
+.theme-light {
+  --color-background: #fafafa;
+  --color-surface: #ffffff;
+  --color-primary: #10b981;
+  --color-secondary: #6366f1;
+  --color-textPrimary: #18181b;
+  --color-textSecondary: #52525b;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+}
+
 body {
   font-family: "Inter", sans-serif;
-  background-color: #0a0a0f;
-  color: #ffffff;
+  background-color: var(--color-background);
+  transition: background-color 0.2s ease;
 }
 
 /* Improve readability for small Tailwind text */
