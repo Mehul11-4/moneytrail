@@ -11,6 +11,7 @@ import {
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import { useLoans } from "../../hooks/useLoans";
 import { formatDate } from "../../utils/formatDate";
 
@@ -212,7 +213,7 @@ function LoanTaken() {
         </div>
       )}
 
-      {loading && <p className="text-textSecondary text-sm">Loading...</p>}
+      {loading && <LoadingSpinner label="Loading loans..." />}
       {!loading && filteredGroups.length === 0 && (
         <p className="text-textSecondary text-sm">No loans recorded yet.</p>
       )}
@@ -222,9 +223,9 @@ function LoanTaken() {
           <button
             key={group.name}
             onClick={() => setViewingLender(group)}
-            className="text-left"
+            className="text-left w-full"
           >
-            <Card>
+            <Card animate>
               <div className="flex justify-between items-center">
                 <p className="font-medium">{group.name}</p>
                 <p className="font-heading font-bold text-danger">
