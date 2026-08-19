@@ -91,6 +91,7 @@ function Counter() {
   );
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedProduct = useMemo(
     () => products.find((p) => p.id === productId),
@@ -180,6 +181,7 @@ function Counter() {
   };
 
   const handleCompleteSale = async () => {
+    if (isSubmitting) return; // hard block: ignore any extra taps while already processing
     setError("");
     if (cart.length === 0)
       return setError("Add at least one item to the cart.");
@@ -190,6 +192,7 @@ function Counter() {
     if (paymentMode === "Udhaar" && !/^\d{10}$/.test(customerPhone.trim()))
       return setError("Enter a valid 10-digit phone number.");
 
+    setIsSubmitting(true);
     try {
       if (cart.length === 1) {
         const item = cart[0];
@@ -224,9 +227,13 @@ function Counter() {
             saleDate,
           },
         );
-        for (const item of cart) {
-          await deductStock(item.productId, item.qty, item.isStatic);
-        }
+        // Run all stock deductions in parallel instead of one-by-one —
+        // this is what was making multi-item carts feel slow to complete.
+        await Promise.all(
+          cart.map((item) =>
+            deductStock(item.productId, item.qty, item.isStatic),
+          ),
+        );
       }
 
       resetForm();
@@ -234,6 +241,8 @@ function Counter() {
       setTimeout(() => setSuccess(false), 2000);
     } catch (err) {
       setError(err.message || "Something went wrong completing this sale.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -463,11 +472,17 @@ function Counter() {
 
             {error && <p className="text-danger text-sm">{error}</p>}
 
-            <Button variant="primary" onClick={handleCompleteSale}>
+            <Button
+              variant="primary"
+              onClick={handleCompleteSale}
+              disabled={isSubmitting}
+            >
               {success ? (
                 <span className="flex items-center justify-center gap-2">
                   <Check className="w-4 h-4" /> Sale Recorded!
                 </span>
+              ) : isSubmitting ? (
+                "Processing..."
               ) : (
                 `Complete Sale — ₹${cartTotal.toFixed(2)}`
               )}

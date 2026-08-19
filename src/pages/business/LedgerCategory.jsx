@@ -640,13 +640,15 @@ function LedgerCategory() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={async () => {
-                                for (const item of block.items) {
-                                  await deleteSale(item.raw.id);
-                                  await restoreStockQty(
-                                    item.raw.productId,
-                                    item.raw.qtySold,
-                                  );
-                                }
+                                await Promise.all(
+                                  block.items.map(async (item) => {
+                                    await deleteSale(item.raw.id);
+                                    await restoreStockQty(
+                                      item.raw.productId,
+                                      item.raw.qtySold,
+                                    );
+                                  }),
+                                );
                                 setConfirmDelete(null);
                               }}
                               className="text-danger text-xs font-medium"
