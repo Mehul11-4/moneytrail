@@ -945,17 +945,11 @@ function LedgerCategory() {
                             return setEditError("Enter valid units purchased.");
 
                           const raw = viewingDetail.raw;
-                          // Parse the original units purchased back out of the auto-generated note description
-                          // (we don't store it separately, so we infer it from the amount / product's unit price)
-                          const product = products.find(
-                            (p) => p.id === raw.productId,
-                          );
-                          if (!product)
+                          const oldUnits = raw.units_purchased;
+                          if (!oldUnits)
                             return setEditError(
-                              "Linked product not found — cannot edit safely.",
+                              "This entry was created before we tracked exact units — please delete and re-enter it instead of editing.",
                             );
-                          const oldUnits =
-                            raw.amount / product.unit_purchase_price;
 
                           await updatePurchaseGoods(raw.id, {
                             productId: raw.productId,
@@ -1019,16 +1013,9 @@ function LedgerCategory() {
                       setEditDate(viewingDetail.date);
                       setEditNote("");
                       if (slug === "purchase-goods") {
-                        const product = products.find(
-                          (p) => p.id === viewingDetail.raw.productId,
+                        setEditUnits(
+                          (viewingDetail.raw.units_purchased || "").toString(),
                         );
-                        if (product) {
-                          setEditUnits(
-                            (
-                              viewingDetail.amount / product.unit_purchase_price
-                            ).toFixed(0),
-                          );
-                        }
                       }
                     }}
                     className="flex items-center justify-center gap-1.5"

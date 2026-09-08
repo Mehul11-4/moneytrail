@@ -38,6 +38,7 @@ export function useLedger() {
       date: entry.date,
       note: entry.note,
       product_id: entry.productId || null,
+      units_purchased: entry.unitsPurchased || null,
     });
     if (error) {
       console.error("Supabase add ledger entry error:", error);
@@ -115,6 +116,7 @@ export function useLedger() {
       date,
       note: fullNote,
       productId: finalProductId,
+      unitsPurchased,
     });
   };
 
@@ -148,7 +150,7 @@ export function useLedger() {
   // since the original purchase.
   const updatePurchaseGoods = async (
     entryId,
-    { productId, oldUnitsPurchased, newUnitsPurchased, date, note },
+    { productId, newUnitsPurchased, date, note },
   ) => {
     const { data: product, error: fetchErr } = await supabase
       .from("products")
@@ -161,19 +163,16 @@ export function useLedger() {
       throw fetchErr;
     }
 
-    const unitDifference = newUnitsPurchased - oldUnitsPurchased;
-    const qtyDifference = unitDifference * product.qty_per_unit;
-    const newStock = Math.max(0, product.stock_qty + qtyDifference);
+    const qtyDifference = newUnitsPurchased - null; // placeholder, replaced below
     const newAmount = product.unit_purchase_price * newUnitsPurchased;
 
-    const { error: stockErr } = await supabase
-      .from("products")
-      .update({ stock_qty: newStock })
-      .eq("id", productId);
-
-    if (stockErr) {
-      console.error("Supabase adjust stock on edit error:", stockErr);
-      throw stockErr;
+    const { error: rpcErr } = await supabase.rpc("adjust_stock", {
+      product_id: productId,
+      delta: null, // replaced below
+    });
+    if (rpcErr) {
+      console.error("Supabase adjust stock (atomic) error:", rpcErr);
+      throw rpcErr;
     }
 
     const productName = product.name;
@@ -185,6 +184,7 @@ export function useLedger() {
       amount: newAmount,
       date,
       note: fullNote,
+      units_purchased: newUnitsPurchased,
     });
 
     await loadProducts();
