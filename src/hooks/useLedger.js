@@ -132,6 +132,40 @@ export function useLedger() {
     }
   };
 
+  // Delete a Purchase Goods entry AND reverse the stock it added.
+  // Only safe/precise for entries that have units_purchased stored (created
+  // after our stock-tracking fix). Older entries fall back to an estimate.
+  const deletePurchaseGoods = async (entry) => {
+    const productId = entry.product_id || entry.productId;
+    if (productId) {
+      const { data: product } = await supabase
+        .from("products")
+        .select("qty_per_unit, unit_purchase_price")
+        .eq("id", productId)
+        .single();
+
+      if (product) {
+        let unitsToReverse = entry.units_purchased;
+        if (!unitsToReverse && product.unit_purchase_price) {
+          unitsToReverse = entry.amount / product.unit_purchase_price;
+        }
+
+        if (unitsToReverse) {
+          const qtyToRemove = unitsToReverse * product.qty_per_unit;
+          const { error: rpcErr } = await supabase.rpc("adjust_stock", {
+            product_id: productId,
+            delta: -qtyToRemove,
+          });
+          if (rpcErr)
+            console.error("Supabase reverse stock on delete error:", rpcErr);
+          await loadProducts();
+        }
+      }
+    }
+
+    await deleteLedgerEntry(entry.id);
+  };
+
   const updateLedgerEntry = async (id, updates) => {
     const { error } = await supabase
       .from("ledger_entries")
@@ -196,6 +230,7 @@ export function useLedger() {
     addLedgerEntry,
     addPurchaseGoods,
     deleteLedgerEntry,
+    deletePurchaseGoods,
     updateLedgerEntry,
     updatePurchaseGoods,
   };

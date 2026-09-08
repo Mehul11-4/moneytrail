@@ -56,6 +56,7 @@ function LedgerCategory() {
     addLedgerEntry,
     addPurchaseGoods,
     deleteLedgerEntry,
+    deletePurchaseGoods,
     updateLedgerEntry,
     updatePurchaseGoods,
   } = useLedger();
@@ -286,6 +287,8 @@ function LedgerCategory() {
         confirmDelete.item.productId,
         confirmDelete.item.qtySold,
       );
+    } else if (slug === "purchase-goods") {
+      await deletePurchaseGoods(confirmDelete.item);
     } else {
       await deleteLedgerEntry(confirmDelete.item.id);
     }

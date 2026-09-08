@@ -108,15 +108,20 @@ export function useSales() {
     if (qtyDiff !== 0) {
       const { data: product } = await supabase
         .from("products")
-        .select("stock_qty, is_static")
+        .select("is_static")
         .eq("id", sale.productId)
         .single();
       if (product && !product.is_static) {
-        const newStock = Math.max(0, product.stock_qty - qtyDiff);
-        await supabase
-          .from("products")
-          .update({ stock_qty: newStock })
-          .eq("id", sale.productId);
+        // Selling MORE than before means stock goes DOWN by the extra amount,
+        // so the delta is negative of qtyDiff.
+        const { error: rpcErr } = await supabase.rpc("adjust_stock", {
+          product_id: sale.productId,
+          delta: -qtyDiff,
+        });
+        if (rpcErr) {
+          console.error("Supabase adjust stock (atomic) error:", rpcErr);
+          throw rpcErr;
+        }
       }
     }
 
