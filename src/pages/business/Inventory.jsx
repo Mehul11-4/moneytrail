@@ -60,6 +60,7 @@ function Inventory() {
   const [form, setForm] = useState({});
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -110,7 +111,9 @@ function Inventory() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     setError("");
+    setIsSaving(true);
 
     if (selected.is_static) {
       const cost = parseFloat(form.costPrice);
@@ -120,6 +123,7 @@ function Inventory() {
 
       await updateProduct(selected.id, { costPrice: cost, mrpPerQty: mrp });
       setIsEditing(false);
+      setIsSaving(false);
       closeDetail();
       return;
     }
@@ -129,14 +133,26 @@ function Inventory() {
     const mrp = parseFloat(form.mrpPerQty);
     const stock = parseFloat(form.stockQty);
 
-    if (!form.name.trim()) return setError("Enter a product name.");
-    if (!qty || qty <= 0)
+    if (!form.name.trim()) {
+      setIsSaving(false);
+      return setError("Enter a product name.");
+    }
+    if (!qty || qty <= 0) {
+      setIsSaving(false);
       return setError("Qty per unit must be greater than 0.");
-    if (!unitPrice || unitPrice <= 0)
+    }
+    if (!unitPrice || unitPrice <= 0) {
+      setIsSaving(false);
       return setError("Enter a valid purchase price.");
-    if (!mrp || mrp <= 0) return setError("Enter a valid MRP.");
-    if (stock < 0 || isNaN(stock))
+    }
+    if (!mrp || mrp <= 0) {
+      setIsSaving(false);
+      return setError("Enter a valid MRP.");
+    }
+    if (stock < 0 || isNaN(stock)) {
+      setIsSaving(false);
       return setError("Enter a valid stock quantity.");
+    }
 
     await updateProduct(selected.id, {
       name: form.name.trim(),
@@ -148,6 +164,7 @@ function Inventory() {
     });
 
     setIsEditing(false);
+    setIsSaving(false);
     closeDetail();
   };
 
@@ -439,9 +456,11 @@ function Inventory() {
                   <Button
                     variant="primary"
                     onClick={handleSave}
+                    disabled={isSaving}
                     className="flex-1 flex items-center justify-center gap-1.5"
                   >
-                    <Check className="w-4 h-4" /> Save
+                    <Check className="w-4 h-4" />{" "}
+                    {isSaving ? "Saving..." : "Save"}
                   </Button>
                   <Button
                     variant="secondary"
