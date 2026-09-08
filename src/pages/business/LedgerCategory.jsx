@@ -79,6 +79,7 @@ function LedgerCategory() {
   const [note, setNote] = usePersistedState(`ledger_${slug}_note`, "");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewingDetail, setViewingDetail] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -207,9 +208,11 @@ function LedgerCategory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError("");
     if (!date) return setError("Select a date.");
 
+    setIsSubmitting(true);
     try {
       if (slug === "purchase-goods") {
         const units = parseFloat(unitsPurchased);
@@ -271,9 +274,10 @@ function LedgerCategory() {
       setError(
         "Something went wrong saving this entry. Check the console for details.",
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
   const handleConfirmDelete = async () => {
     if (!confirmDelete) return;
     if (confirmDelete.kind === "sale") {
@@ -573,8 +577,10 @@ function LedgerCategory() {
               type="submit"
               variant={type === "jama" ? "primary" : "danger"}
               className="flex items-center justify-center gap-2"
+              disabled={isSubmitting}
             >
-              <Plus className="w-4 h-4" /> Save Entry
+              <Plus className="w-4 h-4" />{" "}
+              {isSubmitting ? "Saving..." : "Save Entry"}
             </Button>
           </form>
         </Card>

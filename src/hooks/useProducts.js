@@ -115,16 +115,17 @@ export function useProducts() {
   const restockProduct = async (id, unitsAdded) => {
     const { data: existing } = await supabase
       .from("products")
-      .select("stock_qty, qty_per_unit")
+      .select("qty_per_unit")
       .eq("id", id)
       .single();
     const addedQty = unitsAdded * existing.qty_per_unit;
-    const { error } = await supabase
-      .from("products")
-      .update({ stock_qty: existing.stock_qty + addedQty })
-      .eq("id", id);
+
+    const { error } = await supabase.rpc("adjust_stock", {
+      product_id: id,
+      delta: addedQty,
+    });
     if (error) {
-      console.error("Supabase restock error:", error);
+      console.error("Supabase restock (atomic) error:", error);
     } else {
       await loadProducts();
     }
@@ -132,18 +133,13 @@ export function useProducts() {
 
   const deductStock = async (id, qtySold, isStatic) => {
     if (isStatic) return; // static products (Chai, Coffee) have no stock to deduct
-    const { data: existing } = await supabase
-      .from("products")
-      .select("stock_qty")
-      .eq("id", id)
-      .single();
-    const newStock = Math.max(0, existing.stock_qty - qtySold);
-    const { error } = await supabase
-      .from("products")
-      .update({ stock_qty: newStock })
-      .eq("id", id);
+
+    const { error } = await supabase.rpc("adjust_stock", {
+      product_id: id,
+      delta: -qtySold,
+    });
     if (error) {
-      console.error("Supabase deduct stock error:", error);
+      console.error("Supabase deduct stock (atomic) error:", error);
     } else {
       await loadProducts();
     }
@@ -152,16 +148,17 @@ export function useProducts() {
   const restoreStockQty = async (id, qty) => {
     const { data: existing } = await supabase
       .from("products")
-      .select("stock_qty, is_static")
+      .select("is_static")
       .eq("id", id)
       .single();
     if (!existing || existing.is_static) return; // nothing to restore for static products
-    const { error } = await supabase
-      .from("products")
-      .update({ stock_qty: existing.stock_qty + qty })
-      .eq("id", id);
+
+    const { error } = await supabase.rpc("adjust_stock", {
+      product_id: id,
+      delta: qty,
+    });
     if (error) {
-      console.error("Supabase restore stock error:", error);
+      console.error("Supabase restore stock (atomic) error:", error);
     } else {
       await loadProducts();
     }
