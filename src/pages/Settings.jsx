@@ -11,6 +11,7 @@ import Input from "../components/Input";
 import { exportData, importData } from "../utils/backup";
 import { useAppMode } from "../context/AppModeContext";
 import ThemeToggle from "../components/ThemeToggle";
+import { useTheme } from "../context/ThemeContext";
 import AccountPanel from "../components/AccountPanel";
 import { RefreshCw } from "lucide-react";
 

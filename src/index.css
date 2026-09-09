@@ -34,7 +34,18 @@ html {
 body {
   font-family: "Inter", sans-serif;
   background-color: var(--color-background);
-  transition: background-color 0.2s ease;
+}
+
+/* Smooth theme transitions across every element that uses our color tokens,
+   not just the page background — this is what makes light/dark switching
+   feel like a cohesive fade instead of an abrupt flash. */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 /* Improve readability for small Tailwind text */
