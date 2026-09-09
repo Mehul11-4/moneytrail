@@ -729,51 +729,65 @@ function LedgerCategory() {
                     <Card key={block.key}>
                       <button
                         onClick={() =>
-                          setViewingDetail({
-                            kind: "sale-block",
-                            block,
-                          })
+                          setViewingDetail({ kind: "sale-block", block })
                         }
                         className="text-left w-full"
                       >
-                        {block.items.map((item) => (
-                          <p
-                            key={item.id}
-                            className="text-sm text-textSecondary"
-                          >
-                            {item.note}
+                        {block.items[0]?.raw.customerName && (
+                          <p className="text-xs text-textSecondary mb-1">
+                            {block.items[0].raw.customerName}
                           </p>
-                        ))}
+                        )}
+                        <div className="rounded-control border border-white/10 overflow-hidden">
+                          <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-1.5 text-[9px] font-medium text-textSecondary">
+                            <div className="col-span-5">Item</div>
+                            <div className="col-span-2 text-right">Qty</div>
+                            <div className="col-span-2 text-right">Rate</div>
+                            <div className="col-span-3 text-right">Amount</div>
+                          </div>
+                          {block.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="grid grid-cols-12 px-2 py-1.5 text-xs border-b border-white/5 last:border-b-0"
+                            >
+                              <div className="col-span-5 truncate">
+                                {item.raw.productName}
+                              </div>
+                              <div className="col-span-2 text-right">
+                                {item.raw.qtySold}
+                              </div>
+                              <div className="col-span-2 text-right">
+                                ₹{item.raw.mrpAtSale.toFixed(2)}
+                              </div>
+                              <div className="col-span-3 text-right font-medium">
+                                ₹{item.raw.total.toFixed(2)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </button>
-
                       <div className="flex justify-end items-center gap-3 mt-1">
                         <p className="font-heading font-bold text-success">
                           +₹{block.total.toFixed(2)}
                         </p>
-
                         {confirmDelete &&
                         confirmDelete.blockKey === block.key ? (
                           <div className="flex items-center gap-1">
                             <button
                               onClick={async () => {
-                                await Promise.all(
-                                  block.items.map(async (item) => {
-                                    await deleteSale(item.raw.id);
-
-                                    await restoreStockQty(
-                                      item.raw.productId,
-                                      item.raw.qtySold,
-                                    );
-                                  }),
-                                );
-
+                                for (const item of block.items) {
+                                  await deleteSale(item.raw.id);
+                                  await restoreStockQty(
+                                    item.raw.productId,
+                                    item.raw.qtySold,
+                                  );
+                                }
                                 setConfirmDelete(null);
                               }}
                               className="text-danger text-xs font-medium"
                             >
                               Yes
                             </button>
-
                             <button
                               onClick={() => setConfirmDelete(null)}
                               className="text-textSecondary text-xs"
@@ -784,9 +798,7 @@ function LedgerCategory() {
                         ) : (
                           <button
                             onClick={() =>
-                              setConfirmDelete({
-                                blockKey: block.key,
-                              })
+                              setConfirmDelete({ blockKey: block.key })
                             }
                             className="text-textSecondary hover:text-danger"
                           >
