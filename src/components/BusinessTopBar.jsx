@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, TrendingUp, HandCoins, Settings, X } from "lucide-react";
+import { Menu, TrendingUp, HandCoins, Users, Settings, X } from "lucide-react";
 
 const menuItems = [
   { to: "/business/profit-loss", icon: TrendingUp, label: "P&L" },
   { to: "/business/loan-taken", icon: HandCoins, label: "Loan Taken" },
+  { to: "/business/udhaar-given", icon: Users, label: "Udhaar Given" },
   { to: "/business/settings", icon: Settings, label: "Settings" },
 ];
 

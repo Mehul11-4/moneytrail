@@ -14,7 +14,7 @@ function ModeSwitcher() {
 
   const chooseBusiness = () => {
     setMode("business");
-    navigate("/business/counter", { replace: true });
+    navigate("/business/home", { replace: true });
   };
 
   return (
