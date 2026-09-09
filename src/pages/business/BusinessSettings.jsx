@@ -9,6 +9,7 @@ import {
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import AccountPanel from "../../components/AccountPanel";
+import ThemeToggle from "../../components/ThemeToggle";
 import { exportBusinessData, importBusinessData } from "../../utils/backup";
 import { useAppMode } from "../../context/AppModeContext";
 import { RefreshCw } from "lucide-react";
@@ -75,6 +76,10 @@ function BusinessSettings() {
           <p className="font-heading font-bold">CBN CHAI</p>
           <p className="text-xs text-textSecondary">Sole Proprietorship</p>
         </div>
+      </Card>
+
+      <Card className="mb-4">
+        <ThemeToggle />
       </Card>
 
       <Card className="mb-4">

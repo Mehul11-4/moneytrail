@@ -10,8 +10,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import { exportData, importData } from "../utils/backup";
 import { useAppMode } from "../context/AppModeContext";
-import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon } from "lucide-react";
+import ThemeToggle from "../components/ThemeToggle";
 import AccountPanel from "../components/AccountPanel";
 import { RefreshCw } from "lucide-react";
 
@@ -58,29 +57,7 @@ function Settings() {
     }
 
     <Card className="mb-4">
-      <p className="text-sm font-medium mb-3">Appearance</p>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTheme("dark")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-control text-sm font-medium border ${
-            theme === "dark"
-              ? "bg-primary text-background border-primary"
-              : "bg-surface border-white/10"
-          }`}
-        >
-          <Moon className="w-4 h-4" /> Dark
-        </button>
-        <button
-          onClick={() => setTheme("light")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-control text-sm font-medium border ${
-            theme === "light"
-              ? "bg-primary text-background border-primary"
-              : "bg-surface border-white/10"
-          }`}
-        >
-          <Sun className="w-4 h-4" /> Light
-        </button>
-      </div>
+      <ThemeToggle />
     </Card>;
 
     const { error } = await updatePassword(newPassword);
