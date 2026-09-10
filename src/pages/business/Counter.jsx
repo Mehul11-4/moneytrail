@@ -16,7 +16,6 @@ import Input from "../../components/Input";
 import { useProducts } from "../../hooks/useProducts";
 import { useSales } from "../../hooks/useSales";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { formatDate } from "../../utils/formatDate";
 
 const paymentModes = [
   { value: "Cash", icon: Banknote },
@@ -27,40 +26,14 @@ const paymentModes = [
 function Counter() {
   const { products, deductStock } = useProducts();
   const { sales, recordSale, recordMultiSale } = useSales();
-
   const todayStr = new Date().toISOString().split("T")[0];
-  const todaySales = useMemo(
-    () => sales.filter((s) => s.date === todayStr),
+  const todayTotal = useMemo(
+    () =>
+      sales
+        .filter((s) => s.date === todayStr)
+        .reduce((sum, s) => sum + s.total, 0),
     [sales, todayStr],
   );
-  const todayTotal = useMemo(
-    () => todaySales.reduce((sum, s) => sum + s.total, 0),
-    [todaySales],
-  );
-
-  // Group today's sales by transaction (so a multi-item cart sale shows as ONE block)
-  const todayGrouped = useMemo(() => {
-    const map = {};
-    const order = [];
-    todaySales.forEach((s) => {
-      const key = s.transactionId || s.id;
-      if (!map[key]) {
-        map[key] = {
-          key,
-          items: [],
-          total: 0,
-          paymentMode: s.paymentMode,
-          customerName: s.customerName,
-          time: s.time,
-          date: s.date,
-        };
-        order.push(key);
-      }
-      map[key].items.push(s);
-      map[key].total += s.total;
-    });
-    return order.map((key) => map[key]);
-  }, [todaySales]);
 
   // ---- Cart state ----
   const [cart, setCart] = usePersistedState("cbn_cart", []);
@@ -250,17 +223,13 @@ function Counter() {
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-4">
         <ShoppingCart className="w-7 h-7 text-primary" />
-        <h1 className="text-2xl font-heading font-bold">Sale Voucher</h1>
+        <h1 className="text-2xl font-heading font-bold">Sale</h1>
       </div>
 
       <Card className="mb-6 border-primary/30">
         <p className="text-textSecondary text-sm mb-1">Today's Total Sales</p>
         <p className="text-3xl font-heading font-bold text-primary">
           ₹{todayTotal.toFixed(2)}
-        </p>
-        <p className="text-xs text-textSecondary mt-1">
-          {todayGrouped.length} transaction
-          {todayGrouped.length !== 1 ? "s" : ""} today
         </p>
       </Card>
 
@@ -489,35 +458,6 @@ function Counter() {
             </Button>
           </div>
         </Card>
-      )}
-
-      {todayGrouped.length > 0 && (
-        <div className="mt-6">
-          <p className="text-sm font-medium text-textSecondary mb-2">
-            Today's Sales
-          </p>
-          <div className="flex flex-col gap-2">
-            {todayGrouped.slice(0, 15).map((group) => (
-              <Card key={group.key}>
-                <div className="flex justify-between items-start mb-1">
-                  <p className="text-xs text-textSecondary">
-                    {formatDate(group.date)} · {group.time} ·{" "}
-                    {group.paymentMode}
-                    {group.customerName && ` · ${group.customerName}`}
-                  </p>
-                  <p className="font-heading font-bold text-primary">
-                    ₹{group.total.toFixed(2)}
-                  </p>
-                </div>
-                {group.items.map((s) => (
-                  <p key={s.id} className="text-xs text-textSecondary">
-                    {s.productName} × {s.qtySold} — ₹{s.total.toFixed(2)}
-                  </p>
-                ))}
-              </Card>
-            ))}
-          </div>
-        </div>
       )}
     </div>
   );
