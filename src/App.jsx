@@ -30,7 +30,6 @@ import UdhaarGiven from "./pages/business/UdhaarGiven";
 import BusinessSettings from "./pages/business/BusinessSettings";
 import BusinessBottomNav from "./components/BusinessBottomNav";
 import BusinessTopBar from "./components/BusinessTopBar";
-import NewTransactionLauncher from "./components/NewTransactionLauncher";
 import PersonalTopBar from "./components/PersonalTopBar";
 
 import ModeSwitcher from "./components/ModeSwitcher";
@@ -113,7 +112,7 @@ function AnimatedRoutes() {
           }
         />
         <Route
-          path="/business/counter"
+          path="/business/sale-list"
           element={
             <PageWrapper>
               <Counter />
@@ -206,7 +205,6 @@ function AppShell() {
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
           {mode === "business" && <BusinessTopBar />}
-          {mode === "business" && <NewTransactionLauncher />}
           {mode === "personal" && <PersonalTopBar />}
           <AnimatedRoutes />
           {mode === "personal" ? <BottomNav /> : <BusinessBottomNav />}

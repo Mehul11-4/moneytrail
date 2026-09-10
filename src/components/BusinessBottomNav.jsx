@@ -1,10 +1,10 @@
 import { NavLink } from "react-router-dom";
-import { Store, ShoppingCart, BookText, Package } from "lucide-react";
+import { Store, FileText, ShoppingCart, Package } from "lucide-react";
 
 const navItems = [
   { to: "/business/home", icon: Store, label: "Home" },
-  { to: "/business/counter", icon: ShoppingCart, label: "Sale Voucher" },
-  { to: "/business/jama-kharch", icon: BookText, label: "Jama-Kharch" },
+  { to: "/business/sale-list", icon: FileText, label: "Sale List" },
+  { to: "/business/purchase-list", icon: ShoppingCart, label: "Purchase List" },
   { to: "/business/inventory", icon: Package, label: "Inventory" },
 ];
 
@@ -16,7 +16,7 @@ function BusinessBottomNav() {
           key={to}
           to={to}
           className={({ isActive }) =>
-            `flex-1 flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-control text-[9px] font-medium leading-tight text-center transition-colors ${
+            `flex-1 flex flex-col items-center justify-center gap-1 px-1 py-1 rounded-control text-[10px] font-medium leading-tight text-center transition-colors ${
               isActive ? "text-primary" : "text-textSecondary"
             }`
           }
