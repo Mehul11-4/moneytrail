@@ -21,6 +21,7 @@ import BottomNav from "./components/BottomNav";
 
 import Counter from "./pages/business/Counter";
 import BusinessDashboard from "./pages/business/BusinessDashboard";
+import SaleList from "./pages/business/SaleList";
 import Inventory from "./pages/business/Inventory";
 import JamaKharch from "./pages/business/JamaKharch";
 import LedgerCategory from "./pages/business/LedgerCategory";
@@ -113,6 +114,14 @@ function AnimatedRoutes() {
         />
         <Route
           path="/business/sale-list"
+          element={
+            <PageWrapper>
+              <SaleList />
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/business/sale"
           element={
             <PageWrapper>
               <Counter />
