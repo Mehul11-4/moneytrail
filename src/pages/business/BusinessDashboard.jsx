@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Store,
   ShoppingCart,
-  Package,
-  BookText,
+  ShoppingBag,
   Users,
   HandCoins,
-  TrendingUp,
 } from "lucide-react";
 import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
@@ -39,13 +37,11 @@ function BusinessDashboard() {
     [sales, todayStr],
   );
 
-  const shortcuts = [
-    { to: "/business/counter", icon: ShoppingCart, label: "Sale Voucher" },
-    { to: "/business/inventory", icon: Package, label: "Inventory" },
-    { to: "/business/jama-kharch", icon: BookText, label: "Jama-Kharch" },
+  const quickAccess = [
+    { to: "/business/sale", icon: ShoppingCart, label: "Sale" },
+    { to: "/business/purchase", icon: ShoppingBag, label: "Purchase" },
     { to: "/business/udhaar-given", icon: Users, label: "Parties" },
     { to: "/business/loan-taken", icon: HandCoins, label: "Loan Taken" },
-    { to: "/business/profit-loss", icon: TrendingUp, label: "P&L" },
   ];
 
   return (
@@ -58,7 +54,6 @@ function BusinessDashboard() {
         </div>
       </div>
 
-      {/* To Receive / To Pay summary tiles */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Card
           onClick={() => navigate("/business/udhaar-given")}
@@ -80,10 +75,9 @@ function BusinessDashboard() {
         </Card>
       </div>
 
-      {/* Today's sales */}
       <Card
         className="mb-6 border-primary/30"
-        onClick={() => navigate("/business/counter")}
+        onClick={() => navigate("/business/sale")}
       >
         <p className="text-textSecondary text-sm mb-1">Today's Sales</p>
         <p className="text-2xl font-heading font-bold text-primary">
@@ -91,19 +85,18 @@ function BusinessDashboard() {
         </p>
       </Card>
 
-      {/* Quick access grid */}
       <p className="text-sm font-medium text-textSecondary mb-3">
         Quick Access
       </p>
-      <div className="grid grid-cols-3 gap-3">
-        {shortcuts.map(({ to, icon: Icon, label }) => (
+      <div className="grid grid-cols-2 gap-3">
+        {quickAccess.map(({ to, icon: Icon, label }) => (
           <button
             key={to}
             onClick={() => navigate(to)}
-            className="flex flex-col items-center justify-center gap-2 bg-surface border border-white/5 rounded-card py-5 shadow-sm hover:shadow-md hover:border-white/10 transition-shadow"
+            className="flex flex-col items-center justify-center gap-2 bg-surface border border-white/5 rounded-card py-6 shadow-sm hover:shadow-md hover:border-white/10 transition-shadow"
           >
             <Icon className="w-6 h-6 text-primary" />
-            <span className="text-xs font-medium text-center px-1">
+            <span className="text-sm font-medium text-center px-1">
               {label}
             </span>
           </button>
