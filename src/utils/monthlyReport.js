@@ -20,6 +20,7 @@ export async function generateMonthlyPDF({
   year,
   month,
   sales,
+  purchases,
   ledgerEntries,
 }) {
   const monthLabel = MONTH_NAMES[month];
@@ -27,6 +28,9 @@ export async function generateMonthlyPDF({
 
   // Filter everything to just this month
   const monthSales = sales.filter((s) => s.date.startsWith(monthPrefix));
+  const monthPurchases = (purchases || []).filter((p) =>
+    p.date.startsWith(monthPrefix),
+  );
   const monthLedger = ledgerEntries.filter((e) =>
     e.date.startsWith(monthPrefix),
   );
@@ -35,8 +39,10 @@ export async function generateMonthlyPDF({
 
   // Totals
   const salesTotal = monthSales.reduce((s, x) => s + x.total, 0);
+  const purchasesTotal = monthPurchases.reduce((s, x) => s + x.total, 0);
   const jamaTotal = monthJama.reduce((s, x) => s + x.amount, 0) + salesTotal;
-  const kharchTotal = monthKharch.reduce((s, x) => s + x.amount, 0);
+  const kharchTotal =
+    monthKharch.reduce((s, x) => s + x.amount, 0) + purchasesTotal;
   const netProfit = salesTotal - kharchTotal; // cash-basis, matching P&L page
 
   const doc = new jsPDF();
@@ -94,6 +100,30 @@ export async function generateMonthlyPDF({
     y = doc.lastAutoTable.finalY + 10;
   }
 
+  // ---- Purchases table ----
+  if (monthPurchases.length > 0) {
+    doc.setFontSize(11);
+    doc.text("Purchases", 14, y);
+    y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [["Date", "Time", "Product", "Qty", "Rate", "Party", "Total"]],
+      body: monthPurchases.map((p) => [
+        p.date,
+        p.time,
+        p.productName,
+        p.qty,
+        `Rs ${p.rate.toFixed(2)}`,
+        p.partyName || "-",
+        `Rs ${p.total.toFixed(2)}`,
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [239, 68, 68] },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
   // ---- Jama table ----
   if (monthJama.length > 0) {
     if (y > 250) {
@@ -145,7 +175,11 @@ export async function generateMonthlyPDF({
   }
 
   // ---- Footer ----
-  if (monthSales.length === 0 && monthLedger.length === 0) {
+  if (
+    monthSales.length === 0 &&
+    monthPurchases.length === 0 &&
+    monthLedger.length === 0
+  ) {
     doc.setFontSize(10);
     doc.text("No transactions recorded for this month.", 14, y);
   }
