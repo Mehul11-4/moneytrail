@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, FileDown } from "lucide-react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import { useSales } from "../../hooks/useSales";
+import { usePurchases } from "../../hooks/usePurchases";
 import { useLedger } from "../../hooks/useLedger";
 import { generateMonthlyPDF } from "../../utils/monthlyReport";
 
@@ -23,6 +24,7 @@ const MONTH_NAMES = [
 
 function ProfitLoss() {
   const { sales } = useSales();
+  const { purchases } = usePurchases();
   const { entries } = useLedger();
 
   const now = new Date();
@@ -34,6 +36,7 @@ function ProfitLoss() {
       year: selectedYear,
       month: selectedMonth,
       sales,
+      purchases,
       ledgerEntries: entries,
     });
   };
@@ -50,8 +53,12 @@ function ProfitLoss() {
       .forEach((e) => {
         map[e.subtype] = (map[e.subtype] || 0) + e.amount;
       });
+    const purchaseTotal = purchases.reduce((sum, p) => sum + p.total, 0);
+    if (purchaseTotal > 0) {
+      map["Purchase"] = purchaseTotal;
+    }
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [entries]);
+  }, [entries, purchases]);
 
   const totalExpenses = useMemo(
     () => expenseBreakdown.reduce((sum, [, amt]) => sum + amt, 0),
