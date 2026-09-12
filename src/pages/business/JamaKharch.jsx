@@ -4,15 +4,14 @@ import { BookText } from "lucide-react";
 import { formatDate } from "../../utils/formatDate";
 import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
+import { usePurchases } from "../../hooks/usePurchases";
 import { useLedger } from "../../hooks/useLedger";
 
 const CATEGORY_BUTTONS = [
-  { slug: "sale", label: "Sale", type: "jama" },
   { slug: "capital", label: "Capital", type: "jama" },
   { slug: "loan-taken", label: "Loan Taken", type: "jama" },
   { slug: "borrowed", label: "Borrowed", type: "jama" },
   { slug: "other-jama", label: "Other", type: "jama" },
-  { slug: "purchase-goods", label: "Purchase Goods", type: "kharch" },
   { slug: "loan-interest", label: "Loan Interest", type: "kharch" },
   { slug: "rent", label: "Rent", type: "kharch" },
   { slug: "electricity", label: "Electricity", type: "kharch" },
@@ -23,8 +22,12 @@ const CATEGORY_BUTTONS = [
 function JamaKharch() {
   const navigate = useNavigate();
   const { sales } = useSales();
+  const { purchases } = usePurchases();
   const { entries } = useLedger();
 
+  // Sale (money in) and Purchase (money out) now live in their own modules,
+  // but their totals still need to count toward the overall cash book —
+  // otherwise Total Balance would silently miss all sales/purchase activity.
   const totalJamaAllTime = useMemo(() => {
     const ledgerJama = entries
       .filter((e) => e.type === "jama")
@@ -33,13 +36,13 @@ function JamaKharch() {
     return ledgerJama + salesJama;
   }, [entries, sales]);
 
-  const totalKharchAllTime = useMemo(
-    () =>
-      entries
-        .filter((e) => e.type === "kharch")
-        .reduce((s, e) => s + e.amount, 0),
-    [entries],
-  );
+  const totalKharchAllTime = useMemo(() => {
+    const ledgerKharch = entries
+      .filter((e) => e.type === "kharch")
+      .reduce((s, e) => s + e.amount, 0);
+    const purchaseKharch = purchases.reduce((s, p) => s + p.total, 0);
+    return ledgerKharch + purchaseKharch;
+  }, [entries, purchases]);
 
   const totalBalance = totalJamaAllTime - totalKharchAllTime;
 
@@ -48,6 +51,10 @@ function JamaKharch() {
     sales.forEach((s) => {
       byDate[s.date] = byDate[s.date] || { jama: 0, kharch: 0 };
       byDate[s.date].jama += s.total;
+    });
+    purchases.forEach((p) => {
+      byDate[p.date] = byDate[p.date] || { jama: 0, kharch: 0 };
+      byDate[p.date].kharch += p.total;
     });
     entries.forEach((e) => {
       byDate[e.date] = byDate[e.date] || { jama: 0, kharch: 0 };
@@ -67,10 +74,9 @@ function JamaKharch() {
         };
       })
       .reverse();
-  }, [sales, entries]);
+  }, [sales, purchases, entries]);
 
-  const totalFor = (slug, type, subtypeName) => {
-    if (slug === "sale") return sales.reduce((s, sale) => s + sale.total, 0);
+  const totalFor = (type, subtypeName) => {
     return entries
       .filter((e) => e.type === type && e.subtype === subtypeName)
       .reduce((s, e) => s + e.amount, 0);
@@ -82,7 +88,9 @@ function JamaKharch() {
         <BookText className="w-7 h-7 text-primary" />
         <h1 className="text-2xl font-heading font-bold">Jama-Kharch</h1>
       </div>
-      <p className="text-xs text-textSecondary mb-4">Business cash book</p>
+      <p className="text-xs text-textSecondary mb-4">
+        Business cash book · includes Sale &amp; Purchase totals automatically
+      </p>
 
       <Card
         className={`mb-4 ${totalBalance >= 0 ? "border-success/40" : "border-danger/40"}`}
@@ -97,11 +105,10 @@ function JamaKharch() {
 
       <p className="text-sm font-medium text-textSecondary mb-2">Categories</p>
       <div className="grid grid-cols-2 gap-3 mb-5 items-start">
-        {/* JAMA column */}
         <div className="flex flex-col gap-3">
           {CATEGORY_BUTTONS.filter((c) => c.type === "jama").map((cat) => {
             const subtypeName = cat.slug === "other-jama" ? "Other" : cat.label;
-            const total = totalFor(cat.slug, cat.type, subtypeName);
+            const total = totalFor(cat.type, subtypeName);
             return (
               <button
                 key={cat.slug}
@@ -119,12 +126,11 @@ function JamaKharch() {
           })}
         </div>
 
-        {/* KHARCH column */}
         <div className="flex flex-col gap-3">
           {CATEGORY_BUTTONS.filter((c) => c.type === "kharch").map((cat) => {
             const subtypeName =
               cat.slug === "other-kharch" ? "Other" : cat.label;
-            const total = totalFor(cat.slug, cat.type, subtypeName);
+            const total = totalFor(cat.type, subtypeName);
             return (
               <button
                 key={cat.slug}
