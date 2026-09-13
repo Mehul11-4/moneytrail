@@ -27,12 +27,21 @@ export function useSales() {
     loadSales();
   }, [loadSales]);
 
+  const getNextInvoiceNo = async () => {
+    const { count } = await supabase
+      .from("sales")
+      .select("*", { count: "exact", head: true });
+    return (count || 0) + 1;
+  };
+
   const recordSale = async (sale) => {
     const now = new Date();
     const finalDate = sale.saleDate || now.toISOString().split("T")[0];
+    const invoiceNo = await getNextInvoiceNo();
 
     const { error } = await supabase.from("sales").insert({
       user_id: user.id,
+      invoice_no: invoiceNo,
       product_id: sale.productId,
       product_name: sale.productName,
       qty_sold: sale.qtySold,
@@ -41,7 +50,9 @@ export function useSales() {
       total: sale.total,
       payment_mode: sale.paymentMode,
       customer_name: sale.customerName,
+      billing_name: sale.billingName || sale.customerName,
       customer_phone: sale.customerPhone,
+      received_amount: sale.receivedAmount,
       date: finalDate,
       time: now.toLocaleTimeString("en-IN", {
         hour: "2-digit",
@@ -50,9 +61,9 @@ export function useSales() {
     });
     if (error) {
       console.error("Supabase record sale error:", error);
-    } else {
-      await loadSales();
+      throw error;
     }
+    await loadSales();
   };
 
   // Records multiple cart items as ONE transaction (shared payment mode,
@@ -65,9 +76,14 @@ export function useSales() {
       minute: "2-digit",
     });
     const transactionId = crypto.randomUUID();
+    const invoiceNo = await getNextInvoiceNo();
 
-    const rows = cartItems.map((item) => ({
+    // Received amount and balance due apply to the WHOLE transaction, so we
+    // store the full received amount on the first row only — the block's
+    // total/receivedAmount are always calculated by summing/reading that row.
+    const rows = cartItems.map((item, i) => ({
       user_id: user.id,
+      invoice_no: invoiceNo,
       product_id: item.productId,
       product_name: item.productName,
       qty_sold: item.qtySold,
@@ -76,7 +92,9 @@ export function useSales() {
       total: item.total,
       payment_mode: meta.paymentMode,
       customer_name: meta.customerName,
+      billing_name: meta.billingName || meta.customerName,
       customer_phone: meta.customerPhone,
+      received_amount: i === 0 ? meta.receivedAmount : 0,
       date: finalDate,
       time,
       transaction_id: transactionId,
@@ -151,6 +169,7 @@ export function useSales() {
 function mapSalesFromDb(rows) {
   return rows.map((s) => ({
     id: s.id,
+    invoiceNo: s.invoice_no,
     productId: s.product_id,
     productName: s.product_name,
     qtySold: s.qty_sold,
@@ -159,7 +178,9 @@ function mapSalesFromDb(rows) {
     total: s.total,
     paymentMode: s.payment_mode,
     customerName: s.customer_name,
+    billingName: s.billing_name,
     customerPhone: s.customer_phone,
+    receivedAmount: s.received_amount || 0,
     date: s.date,
     time: s.time,
     createdAt: s.created_at,
