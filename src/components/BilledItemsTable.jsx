@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, X, Plus, Package } from "lucide-react";
+import { Search, X, Plus } from "lucide-react";
 
 function BilledItemsTable({
   items,
@@ -8,6 +8,7 @@ function BilledItemsTable({
   allowNewProduct = false,
   productTypes = [],
 }) {
+  const [entryMode, setEntryMode] = useState("existing"); // "existing" | "new"
   const [pickerRowIndex, setPickerRowIndex] = useState(null);
   const [search, setSearch] = useState("");
   const [showNewProductForm, setShowNewProductForm] = useState(false);
@@ -43,6 +44,7 @@ function BilledItemsTable({
     ]);
     setPickerRowIndex(items.length); // immediately open item picker for the new row
     setSearch("");
+    setShowNewProductForm(entryMode === "new");
   };
 
   const removeRow = (index) =>
@@ -51,6 +53,7 @@ function BilledItemsTable({
   const openPicker = (index) => {
     setPickerRowIndex(index);
     setSearch("");
+    setShowNewProductForm(entryMode === "new");
   };
 
   const selectProduct = (product) => {
@@ -106,6 +109,33 @@ function BilledItemsTable({
 
   return (
     <div>
+      {allowNewProduct && (
+        <div className="flex gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setEntryMode("existing")}
+            className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
+              entryMode === "existing"
+                ? "bg-primary text-background border-primary"
+                : "bg-surface border-white/10 text-textSecondary"
+            }`}
+          >
+            Existing Product
+          </button>
+          <button
+            type="button"
+            onClick={() => setEntryMode("new")}
+            className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
+              entryMode === "new"
+                ? "bg-primary text-background border-primary"
+                : "bg-surface border-white/10 text-textSecondary"
+            }`}
+          >
+            New Product
+          </button>
+        </div>
+      )}
+
       <div className="rounded-control border border-white/10 overflow-hidden">
         <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-2 text-[10px] font-medium text-textSecondary">
           <div className="col-span-5">Item Name</div>
@@ -253,16 +283,6 @@ function BilledItemsTable({
               </div>
             ) : (
               <>
-                {allowNewProduct && (
-                  <button
-                    type="button"
-                    onClick={() => setShowNewProductForm(true)}
-                    className="w-full flex items-center gap-2 mb-3 px-3 py-2.5 rounded-control border border-dashed border-primary/40 text-primary text-sm font-medium"
-                  >
-                    <Package className="w-4 h-4" /> New Product (not in
-                    inventory)
-                  </button>
-                )}
                 <div className="relative mb-3">
                   <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
