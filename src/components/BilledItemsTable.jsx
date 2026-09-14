@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { Search, X, Plus } from "lucide-react";
+import { Search, X, Plus, Package } from "lucide-react";
 
-function BilledItemsTable({ items, setItems, products }) {
+function BilledItemsTable({
+  items,
+  setItems,
+  products,
+  allowNewProduct = false,
+  productTypes = [],
+}) {
   const [pickerRowIndex, setPickerRowIndex] = useState(null);
   const [search, setSearch] = useState("");
+  const [showNewProductForm, setShowNewProductForm] = useState(false);
+  const [newSection, setNewSection] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newUnitLabel, setNewUnitLabel] = useState("");
+  const [newQtyPerUnit, setNewQtyPerUnit] = useState("");
+  const [newMrp, setNewMrp] = useState("");
 
   const updateRow = (index, updates) => {
     setItems((prev) =>
@@ -49,6 +61,37 @@ function BilledItemsTable({ items, setItems, products }) {
       rate: product.mrp_per_qty,
       qty: items[pickerRowIndex]?.qty || "1",
     });
+    setPickerRowIndex(null);
+  };
+
+  const confirmNewProduct = () => {
+    if (
+      !newSection ||
+      !newName.trim() ||
+      !newUnitLabel.trim() ||
+      !newQtyPerUnit
+    )
+      return;
+    updateRow(pickerRowIndex, {
+      productId: null,
+      productName: newName.trim(),
+      isStatic: false,
+      isNewProduct: true,
+      newProductDetails: {
+        section: newSection,
+        name: newName.trim(),
+        unitLabel: newUnitLabel.trim(),
+        qtyPerUnit: parseFloat(newQtyPerUnit),
+        mrpPerQty: parseFloat(newMrp) || 0,
+      },
+      qty: items[pickerRowIndex]?.qty || "1",
+    });
+    setShowNewProductForm(false);
+    setNewSection("");
+    setNewName("");
+    setNewUnitLabel("");
+    setNewQtyPerUnit("");
+    setNewMrp("");
     setPickerRowIndex(null);
   };
 
@@ -141,42 +184,115 @@ function BilledItemsTable({ items, setItems, products }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
-              <p className="font-heading font-bold">Select Item</p>
+              <p className="font-heading font-bold">
+                {showNewProductForm ? "New Product" : "Select Item"}
+              </p>
               <button
-                onClick={() => setPickerRowIndex(null)}
+                onClick={() => {
+                  setPickerRowIndex(null);
+                  setShowNewProductForm(false);
+                }}
                 className="text-textSecondary"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="relative mb-3">
-              <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search items..."
-                className="w-full bg-background border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary"
-              />
-            </div>
-            <div className="overflow-y-auto flex-1">
-              {filteredProducts.length === 0 && (
-                <p className="text-textSecondary text-sm p-2">
-                  No items found.
-                </p>
-              )}
-              {filteredProducts.map((p) => (
+
+            {showNewProductForm ? (
+              <div className="flex flex-col gap-3 overflow-y-auto">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-textSecondary font-medium">
+                    Product Type
+                  </label>
+                  <select
+                    value={newSection}
+                    onChange={(e) => setNewSection(e.target.value)}
+                    className="bg-background border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                  >
+                    <option value="">Select product type</option>
+                    {productTypes.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Product Name"
+                  className="bg-background border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                />
+                <input
+                  value={newUnitLabel}
+                  onChange={(e) => setNewUnitLabel(e.target.value)}
+                  placeholder="Unit Label (e.g. Pack)"
+                  className="bg-background border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                />
+                <input
+                  type="number"
+                  value={newQtyPerUnit}
+                  onChange={(e) => setNewQtyPerUnit(e.target.value)}
+                  placeholder="Qty per Unit"
+                  className="bg-background border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                />
+                <input
+                  type="number"
+                  value={newMrp}
+                  onChange={(e) => setNewMrp(e.target.value)}
+                  placeholder="MRP per Piece (₹)"
+                  className="bg-background border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                />
                 <button
-                  key={p.id}
                   type="button"
-                  onClick={() => selectProduct(p)}
-                  className="w-full text-left px-3 py-3 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                  onClick={confirmNewProduct}
+                  className="bg-primary text-background rounded-control py-2.5 text-sm font-medium"
                 >
-                  {p.section} — {p.name}
+                  Add This Product
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <>
+                {allowNewProduct && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewProductForm(true)}
+                    className="w-full flex items-center gap-2 mb-3 px-3 py-2.5 rounded-control border border-dashed border-primary/40 text-primary text-sm font-medium"
+                  >
+                    <Package className="w-4 h-4" /> New Product (not in
+                    inventory)
+                  </button>
+                )}
+                <div className="relative mb-3">
+                  <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search items..."
+                    className="w-full bg-background border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {filteredProducts.length === 0 && (
+                    <p className="text-textSecondary text-sm p-2">
+                      No items found.
+                    </p>
+                  )}
+                  {filteredProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectProduct(p)}
+                      className="w-full text-left px-3 py-3 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                    >
+                      {p.section} — {p.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1,190 +1,135 @@
 import { useState, useMemo } from "react";
-import { ShoppingBag, Check, Search, Plus, X } from "lucide-react";
+import { ShoppingBag, Check } from "lucide-react";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
+import BilledItemsTable from "../../components/BilledItemsTable";
 import { useProducts } from "../../hooks/useProducts";
 import { usePurchases } from "../../hooks/usePurchases";
 import { useProductTypes } from "../../hooks/useProductTypes";
 import { usePersistedState } from "../../hooks/usePersistedState";
 
-const paymentModes = ["Cash", "Online", "Credit"];
+const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 function Purchase() {
   const { products } = useProducts();
   const { productTypes } = useProductTypes();
-  const { recordPurchase, recordMultiPurchase } = usePurchases();
+  const { purchases, recordPurchase, recordMultiPurchase } = usePurchases();
 
   const todayStr = new Date().toISOString().split("T")[0];
+  const nextInvoiceNo = useMemo(() => purchases.length + 1, [purchases]);
 
-  const [cart, setCart] = usePersistedState("cbn_purchase_cart", []);
-  const [mode, setMode] = usePersistedState("cbn_purchase_mode", "existing");
-  const [productId, setProductId] = usePersistedState(
-    "cbn_purchase_productId",
-    "",
+  const [items, setItems] = usePersistedState("cbn_purchase_items", []);
+  const [purchaseDate, setPurchaseDate] = usePersistedState(
+    "cbn_purchase_date",
+    todayStr,
   );
-  const [productSearch, setProductSearch] = useState("");
-  const [showProductList, setShowProductList] = useState(false);
-  const [qty, setQty] = usePersistedState("cbn_purchase_qty", "");
-  const [rate, setRate] = usePersistedState("cbn_purchase_rate", "");
-
-  const [newSection, setNewSection] = usePersistedState(
-    "cbn_purchase_newSection",
-    "",
-  );
-  const [newName, setNewName] = usePersistedState("cbn_purchase_newName", "");
-  const [newUnitLabel, setNewUnitLabel] = usePersistedState(
-    "cbn_purchase_newUnitLabel",
-    "",
-  );
-  const [newQtyPerUnit, setNewQtyPerUnit] = usePersistedState(
-    "cbn_purchase_newQtyPerUnit",
-    "",
-  );
-  const [newMrp, setNewMrp] = usePersistedState("cbn_purchase_newMrp", "");
-
   const [partyName, setPartyName] = usePersistedState(
     "cbn_purchase_partyName",
+    "",
+  );
+  const [billingName, setBillingName] = usePersistedState(
+    "cbn_purchase_billingName",
     "",
   );
   const [partyPhone, setPartyPhone] = usePersistedState(
     "cbn_purchase_partyPhone",
     "",
   );
-  const [paymentMode, setPaymentMode] = usePersistedState(
-    "cbn_purchase_paymentMode",
+  const [isPaid, setIsPaid] = usePersistedState("cbn_purchase_isPaid", true);
+  const [paidAmount, setPaidAmount] = usePersistedState(
+    "cbn_purchase_paidAmount",
+    "",
+  );
+  const [paymentType, setPaymentType] = usePersistedState(
+    "cbn_purchase_paymentType",
     "Cash",
   );
-  const [purchaseDate, setPurchaseDate] = usePersistedState(
-    "cbn_purchase_date",
-    todayStr,
+  const [description, setDescription] = usePersistedState(
+    "cbn_purchase_description",
+    "",
   );
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const selectedProduct = useMemo(
-    () => products.find((p) => p.id === productId),
-    [products, productId],
+  const validItems = useMemo(
+    () =>
+      items.filter(
+        (r) =>
+          (r.productId || r.isNewProduct) &&
+          parseFloat(r.qty) > 0 &&
+          parseFloat(r.rate) >= 0,
+      ),
+    [items],
   );
-
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products;
-    const q = productSearch.trim().toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) || p.section.toLowerCase().includes(q),
-    );
-  }, [products, productSearch]);
-
-  const itemTotal = useMemo(() => {
-    const q = parseFloat(qty);
-    const r = parseFloat(rate);
-    if (!q || !r) return 0;
-    return q * r;
-  }, [qty, rate]);
-
   const cartTotal = useMemo(
-    () => cart.reduce((sum, i) => sum + i.total, 0),
-    [cart],
+    () => validItems.reduce((sum, r) => sum + r.amount, 0),
+    [validItems],
   );
 
-  const resetItemForm = () => {
-    setMode("existing");
-    setProductId("");
-    setProductSearch("");
-    setQty("");
-    setRate("");
-    setNewSection("");
-    setNewName("");
-    setNewUnitLabel("");
-    setNewQtyPerUnit("");
-    setNewMrp("");
-  };
-
-  const addToCart = () => {
-    setError("");
-    const q = parseFloat(qty);
-    const r = parseFloat(rate);
-    if (!q || q <= 0) return setError("Enter a valid quantity.");
-    if (!r || r <= 0) return setError("Enter a valid rate.");
-
-    if (mode === "existing") {
-      if (!selectedProduct) return setError("Select a product.");
-      setCart((prev) => [
-        ...prev,
-        {
-          isNewProduct: false,
-          productId: selectedProduct.id,
-          productName: selectedProduct.name,
-          qty: q,
-          rate: r,
-          total: q * r,
-        },
-      ]);
-    } else {
-      const qtyPerUnit = parseFloat(newQtyPerUnit);
-      const mrp = parseFloat(newMrp);
-      if (!newSection) return setError("Select a product type.");
-      if (!newName.trim()) return setError("Enter product name.");
-      if (!newUnitLabel.trim()) return setError("Enter unit label.");
-      if (!qtyPerUnit || qtyPerUnit <= 0)
-        return setError("Enter valid qty per unit.");
-      if (!mrp || mrp <= 0) return setError("Enter valid MRP.");
-      setCart((prev) => [
-        ...prev,
-        {
-          isNewProduct: true,
-          newProductDetails: {
-            section: newSection,
-            name: newName.trim(),
-            unitLabel: newUnitLabel.trim(),
-            qtyPerUnit,
-            mrpPerQty: mrp,
-          },
-          productName: newName.trim(),
-          qty: q,
-          rate: r,
-          total: q * r,
-        },
-      ]);
+  const finalPaidAmount = useMemo(() => {
+    if (!isPaid) return 0;
+    if (paidAmount.trim() !== "") {
+      const p = parseFloat(paidAmount);
+      return isNaN(p) ? 0 : p;
     }
-    resetItemForm();
-  };
+    return cartTotal;
+  }, [isPaid, paidAmount, cartTotal]);
 
-  const removeFromCart = (i) =>
-    setCart((prev) => prev.filter((_, idx) => idx !== i));
+  const balanceDue = useMemo(
+    () => Math.max(0, cartTotal - finalPaidAmount),
+    [cartTotal, finalPaidAmount],
+  );
 
   const resetForm = () => {
-    setCart([]);
-    resetItemForm();
-    setPartyName("");
-    setPartyPhone("");
-    setPaymentMode("Cash");
+    setItems([]);
     setPurchaseDate(todayStr);
+    setPartyName("");
+    setBillingName("");
+    setPartyPhone("");
+    setIsPaid(true);
+    setPaidAmount("");
+    setPaymentType("Cash");
+    setDescription("");
     setError("");
   };
 
   const handleCompletePurchase = async () => {
     if (isSubmitting) return;
     setError("");
-    if (cart.length === 0)
-      return setError("Add at least one item to the cart.");
+    if (validItems.length === 0)
+      return setError("Add at least one item with quantity and rate.");
+    if (balanceDue > 0 && !partyName.trim())
+      return setError("Party Name is required when there is a balance due.");
 
     setIsSubmitting(true);
     try {
+      const paymentMode = balanceDue > 0 ? "Credit" : paymentType;
       const meta = {
         partyName: partyName.trim() || null,
+        billingName: billingName.trim() || partyName.trim() || null,
         partyPhone: partyPhone.trim() || null,
+        paidAmount: finalPaidAmount,
         paymentMode,
         purchaseDate,
       };
-      if (cart.length === 1) {
-        await recordPurchase(cart[0], meta);
+
+      const itemPayloads = validItems.map((row) => ({
+        productId: row.productId,
+        isNewProduct: !!row.isNewProduct,
+        newProductDetails: row.newProductDetails,
+        qty: parseFloat(row.qty),
+        rate: parseFloat(row.rate),
+      }));
+
+      if (itemPayloads.length === 1) {
+        await recordPurchase(itemPayloads[0], meta);
       } else {
-        await recordMultiPurchase(cart, meta);
+        await recordMultiPurchase(itemPayloads, meta);
       }
+
       resetForm();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
@@ -202,270 +147,150 @@ function Purchase() {
         <h1 className="text-2xl font-heading font-bold">Purchase</h1>
       </div>
 
-      <Card>
-        <p className="text-sm font-medium mb-3">Add Item</p>
-        <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => setMode("existing")}
-            className={`flex-1 py-2 rounded-control text-sm font-medium border ${mode === "existing" ? "bg-primary text-background border-primary" : "bg-surface border-white/10"}`}
-          >
-            Restock Existing
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("new")}
-            className={`flex-1 py-2 rounded-control text-sm font-medium border ${mode === "new" ? "bg-primary text-background border-primary" : "bg-surface border-white/10"}`}
-          >
-            New Product
-          </button>
-        </div>
-
-        {mode === "existing" ? (
-          <div className="flex flex-col gap-1.5 relative mb-3">
-            <label className="text-xs text-textSecondary font-medium">
-              Product
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowProductList(!showProductList)}
-              className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-left text-sm"
-            >
-              {selectedProduct ? (
-                <span>
-                  {selectedProduct.section} — {selectedProduct.name}
-                </span>
-              ) : (
-                <span className="text-textSecondary">Select a product</span>
-              )}
-            </button>
-            {showProductList && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-white/10 rounded-control z-20 max-h-72 overflow-y-auto">
-                <div className="relative p-2 border-b border-white/10 sticky top-0 bg-surface">
-                  <Search className="w-4 h-4 text-textSecondary absolute left-5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    autoFocus
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full bg-background border border-white/10 rounded-control pl-9 pr-3 py-2 text-sm"
-                  />
-                </div>
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setProductId(p.id);
-                      setShowProductList(false);
-                      setProductSearch("");
-                    }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
-                  >
-                    {p.section} — {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
+      <Card className="mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-xs text-textSecondary">Bill No.</p>
+            <p className="font-medium">{nextInvoiceNo}</p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3 mb-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-textSecondary font-medium">
-                Product Type
-              </label>
-              <select
-                value={newSection}
-                onChange={(e) => setNewSection(e.target.value)}
-                className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-sm"
-              >
-                <option value="">Select product type</option>
-                {productTypes.map((t) => (
-                  <option key={t.id} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="text-right">
+            <p className="text-xs text-textSecondary mb-1">Date</p>
             <Input
-              label="Product Name"
-              name="newName"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Gold Flake"
-            />
-            <Input
-              label="Unit Label"
-              name="newUnitLabel"
-              value={newUnitLabel}
-              onChange={(e) => setNewUnitLabel(e.target.value)}
-              placeholder="e.g. Pack"
-            />
-            <Input
-              label="Qty per Unit"
-              name="newQtyPerUnit"
-              type="number"
-              value={newQtyPerUnit}
-              onChange={(e) => setNewQtyPerUnit(e.target.value)}
-              placeholder="e.g. 10"
-            />
-            <Input
-              label="MRP per Piece (₹)"
-              name="newMrp"
-              type="number"
-              value={newMrp}
-              onChange={(e) => setNewMrp(e.target.value)}
-              placeholder="e.g. 30"
-            />
-          </div>
-        )}
-
-        <Input
-          label={
-            mode === "existing"
-              ? "Quantity (pieces)"
-              : "Total Qty Purchased (pieces)"
-          }
-          name="qty"
-          type="number"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          placeholder="e.g. 50"
-        />
-        <div className="mt-3">
-          <Input
-            label="Rate (₹ per piece)"
-            name="rate"
-            type="number"
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-            placeholder="e.g. 24.40"
-          />
-        </div>
-
-        {itemTotal > 0 && (
-          <p className="text-xs text-textSecondary mt-2">
-            Item Total: ₹{itemTotal.toFixed(2)}
-          </p>
-        )}
-        {error && <p className="text-danger text-sm mt-2">{error}</p>}
-
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={addToCart}
-          className="flex items-center justify-center gap-2 mt-3"
-        >
-          <Plus className="w-4 h-4" /> Add to Cart
-        </Button>
-      </Card>
-
-      {cart.length > 0 && (
-        <Card className="mt-4">
-          <p className="text-sm font-medium mb-3">
-            Cart ({cart.length} item{cart.length !== 1 ? "s" : ""})
-          </p>
-          <div className="flex flex-col gap-2 mb-3">
-            {cart.map((item, i) => (
-              <div
-                key={i}
-                className="flex justify-between items-center border-b border-white/5 pb-2"
-              >
-                <p className="text-sm font-medium">
-                  {item.productName} × {item.qty}
-                </p>
-                <div className="flex items-center gap-3">
-                  <p className="font-heading font-bold text-sm">
-                    ₹{item.total.toFixed(2)}
-                  </p>
-                  <button
-                    onClick={() => removeFromCart(i)}
-                    className="text-textSecondary hover:text-danger"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-medium">Cart Total</p>
-            <p className="text-xl font-heading font-bold text-danger">
-              ₹{cartTotal.toFixed(2)}
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {cart.length > 0 && (
-        <Card className="mt-4">
-          <p className="text-sm font-medium mb-3">Complete Purchase</p>
-          <div className="flex flex-col gap-3">
-            <Input
-              label="Party Name (optional)"
-              name="partyName"
-              value={partyName}
-              onChange={(e) => setPartyName(e.target.value)}
-              placeholder="e.g. Mahalaxmi Kirana"
-            />
-            <Input
-              label="Party Phone (optional)"
-              name="partyPhone"
-              type="tel"
-              value={partyPhone}
-              onChange={(e) =>
-                setPartyPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-              }
-              placeholder="e.g. 9876543210"
-            />
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-textSecondary font-medium">
-                Payment Mode
-              </label>
-              <div className="flex gap-2">
-                {paymentModes.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPaymentMode(value)}
-                    className={`flex-1 py-2.5 rounded-control text-xs font-medium border ${paymentMode === value ? "bg-primary text-background border-primary" : "bg-surface border-white/10"}`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Input
-              label="Purchase Date"
               name="purchaseDate"
               type="date"
               value={purchaseDate}
               max={todayStr}
               onChange={(e) => setPurchaseDate(e.target.value)}
             />
-
-            {error && <p className="text-danger text-sm">{error}</p>}
-
-            <Button
-              variant="danger"
-              onClick={handleCompletePurchase}
-              disabled={isSubmitting}
-            >
-              {success ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Check className="w-4 h-4" /> Purchase Recorded!
-                </span>
-              ) : isSubmitting ? (
-                "Processing..."
-              ) : (
-                `Complete Purchase — ₹${cartTotal.toFixed(2)}`
-              )}
-            </Button>
           </div>
-        </Card>
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <p className="text-sm font-medium mb-3">Party Details</p>
+        <div className="flex flex-col gap-3">
+          <Input
+            label="Party Name (Optional unless balance due)"
+            name="partyName"
+            value={partyName}
+            onChange={(e) => setPartyName(e.target.value)}
+            placeholder="e.g. Mahalaxmi Kirana"
+          />
+          <Input
+            label="Billing Name (Optional)"
+            name="billingName"
+            value={billingName}
+            onChange={(e) => setBillingName(e.target.value)}
+            placeholder="Defaults to Party Name"
+          />
+          <Input
+            label="Phone Number"
+            name="partyPhone"
+            type="tel"
+            value={partyPhone}
+            onChange={(e) =>
+              setPartyPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+            }
+            placeholder="e.g. 9876543210"
+          />
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <p className="text-sm font-medium mb-3">Billed Items</p>
+        <BilledItemsTable
+          items={items}
+          setItems={setItems}
+          products={products}
+          allowNewProduct
+          productTypes={productTypes}
+        />
+      </Card>
+
+      {error && <p className="text-danger text-sm mb-3">{error}</p>}
+
+      {validItems.length > 0 && (
+        <>
+          <Card className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm">Total Amount</p>
+              <p className="font-heading font-bold text-lg">
+                ₹{cartTotal.toFixed(2)}
+              </p>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={isPaid}
+                  onChange={(e) => setIsPaid(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Paid
+              </label>
+              <input
+                type="number"
+                disabled={!isPaid}
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                placeholder={cartTotal.toFixed(2)}
+                className="w-28 text-right bg-surface border border-white/10 rounded-control px-2 py-1.5 text-sm disabled:opacity-40"
+              />
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+              <p className="text-sm font-medium">Balance Due</p>
+              <p
+                className={`font-heading font-bold ${balanceDue > 0 ? "text-danger" : "text-success"}`}
+              >
+                ₹{balanceDue.toFixed(2)}
+              </p>
+            </div>
+          </Card>
+
+          <Card className="mb-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-textSecondary font-medium">
+                  Payment Type
+                </label>
+                <select
+                  value={paymentType}
+                  onChange={(e) => setPaymentType(e.target.value)}
+                  className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-sm"
+                >
+                  {paymentTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Input
+                label="Description (optional)"
+                name="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add note"
+              />
+            </div>
+          </Card>
+
+          <Button
+            variant="danger"
+            onClick={handleCompletePurchase}
+            disabled={isSubmitting}
+          >
+            {success ? (
+              <span className="flex items-center justify-center gap-2">
+                <Check className="w-4 h-4" /> Purchase Recorded!
+              </span>
+            ) : isSubmitting ? (
+              "Processing..."
+            ) : (
+              `Complete Purchase — ₹${cartTotal.toFixed(2)}`
+            )}
+          </Button>
+        </>
       )}
     </div>
   );
