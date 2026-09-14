@@ -31,22 +31,32 @@ function BilledItemsTable({
   };
 
   const addRow = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        productId: "",
-        productName: "",
-        isStatic: false,
-        qty: "",
-        rate: "",
-        amount: 0,
-      },
-    ]);
-    setPickerRowIndex(items.length); // immediately open item picker for the new row
+    // If the last row is still empty/incomplete (e.g. from a fast double-tap,
+    // or the user tapped Add Item but never picked anything), reuse it
+    // instead of creating another blank row.
+    const lastRow = items[items.length - 1];
+    const lastRowIncomplete =
+      lastRow && !lastRow.productId && !lastRow.isNewProduct;
+
+    if (lastRowIncomplete) {
+      setPickerRowIndex(items.length - 1);
+    } else {
+      setItems((prev) => [
+        ...prev,
+        {
+          productId: "",
+          productName: "",
+          isStatic: false,
+          qty: "",
+          rate: "",
+          amount: 0,
+        },
+      ]);
+      setPickerRowIndex(items.length);
+    }
     setSearch("");
     setShowNewProductForm(entryMode === "new");
   };
-
   const removeRow = (index) =>
     setItems((prev) => prev.filter((_, i) => i !== index));
 
@@ -62,7 +72,7 @@ function BilledItemsTable({
       productName: product.name,
       isStatic: product.is_static,
       rate: product.mrp_per_qty,
-      qty: items[pickerRowIndex]?.qty || "1",
+      qty: "", // left blank deliberately — forces you to actively type the real quantity
     });
     setPickerRowIndex(null);
   };
