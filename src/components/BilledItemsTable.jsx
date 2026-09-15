@@ -7,6 +7,7 @@ function BilledItemsTable({
   products,
   allowNewProduct = false,
   productTypes = [],
+  unitMode = false,
 }) {
   const [entryMode, setEntryMode] = useState("existing"); // "existing" | "new"
   const [pickerRowIndex, setPickerRowIndex] = useState(null);
@@ -23,8 +24,21 @@ function BilledItemsTable({
       prev.map((row, i) => {
         if (i !== index) return row;
         const merged = { ...row, ...updates };
-        merged.amount =
-          (parseFloat(merged.qty) || 0) * (parseFloat(merged.rate) || 0);
+
+        if (unitMode && !merged.isNewProduct && merged.productId) {
+          // Existing products: user enters UNITS (e.g. Packs), we calculate
+          // actual pieces and per-piece rate behind the scenes.
+          const product = products.find((p) => p.id === merged.productId);
+          const qtyPerUnit = product?.qty_per_unit || 1;
+          const units = parseFloat(merged.units) || 0;
+          merged.qty = units * qtyPerUnit; // pieces — used for stock update
+          merged.amount = units * (parseFloat(merged.rate) || 0);
+        } else {
+          // New products: Qty is entered directly in pieces, same as before.
+          merged.amount =
+            (parseFloat(merged.qty) || 0) * (parseFloat(merged.rate) || 0);
+        }
+
         return merged;
       }),
     );
@@ -71,8 +85,10 @@ function BilledItemsTable({
       productId: product.id,
       productName: product.name,
       isStatic: product.is_static,
-      rate: product.mrp_per_qty,
-      qty: "", // left blank deliberately — forces you to actively type the real quantity
+      unitLabel: product.unit_label,
+      rate: unitMode ? "" : product.mrp_per_qty,
+      qty: unitMode ? "" : "",
+      units: "",
     });
     setPickerRowIndex(null);
   };
@@ -149,55 +165,74 @@ function BilledItemsTable({
       <div className="rounded-control border border-white/10 overflow-hidden">
         <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-2 text-[10px] font-medium text-textSecondary">
           <div className="col-span-5">Item Name</div>
-          <div className="col-span-2 text-right">Qty</div>
-          <div className="col-span-2 text-right">Rate</div>
+          <div className="col-span-2 text-right">
+            {unitMode ? "Units" : "Qty"}
+          </div>
+          <div className="col-span-2 text-right">
+            {unitMode ? "Rate/Unit" : "Rate"}
+          </div>
           <div className="col-span-3 text-right">Amount</div>
         </div>
 
-        {items.map((row, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-12 items-center px-1.5 py-1.5 text-xs border-b border-white/5 gap-1"
-          >
-            <button
-              type="button"
-              onClick={() => openPicker(i)}
-              className="col-span-5 text-left px-1 py-1.5 truncate"
+        {items.map((row, i) => {
+          const isUnitMode = unitMode && !row.isNewProduct && row.productId;
+          return (
+            <div
+              key={i}
+              className="grid grid-cols-12 items-center px-1.5 py-1.5 text-xs border-b border-white/5 gap-1"
             >
-              {row.productName || (
-                <span className="text-textSecondary">Tap to select</span>
-              )}
-            </button>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={row.qty}
-              onChange={(e) => updateRow(i, { qty: e.target.value })}
-              placeholder="0"
-              className="col-span-2 bg-surface border border-white/10 rounded px-1 py-1.5 text-right text-xs focus:outline-none focus:border-primary"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              value={row.rate}
-              onChange={(e) => updateRow(i, { rate: e.target.value })}
-              placeholder="0"
-              className="col-span-2 bg-surface border border-white/10 rounded px-1 py-1.5 text-right text-xs focus:outline-none focus:border-primary"
-            />
-            <div className="col-span-3 flex items-center justify-end gap-1.5">
-              <span className="font-medium">
-                ₹{(row.amount || 0).toFixed(2)}
-              </span>
               <button
                 type="button"
-                onClick={() => removeRow(i)}
-                className="text-textSecondary hover:text-danger"
+                onClick={() => openPicker(i)}
+                className="col-span-5 text-left px-1 py-1.5 truncate"
               >
-                <X className="w-3.5 h-3.5" />
+                {row.productName || (
+                  <span className="text-textSecondary">Tap to select</span>
+                )}
+                {isUnitMode && row.unitLabel && (
+                  <span className="text-textSecondary text-[9px] block">
+                    in {row.unitLabel}s
+                  </span>
+                )}
               </button>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={isUnitMode ? row.units : row.qty}
+                onChange={(e) =>
+                  updateRow(
+                    i,
+                    isUnitMode
+                      ? { units: e.target.value }
+                      : { qty: e.target.value },
+                  )
+                }
+                placeholder="0"
+                className="col-span-2 bg-surface border border-white/10 rounded px-1 py-1.5 text-right text-xs focus:outline-none focus:border-primary"
+              />
+              <input
+                type="number"
+                inputMode="decimal"
+                value={row.rate}
+                onChange={(e) => updateRow(i, { rate: e.target.value })}
+                placeholder="0"
+                className="col-span-2 bg-surface border border-white/10 rounded px-1 py-1.5 text-right text-xs focus:outline-none focus:border-primary"
+              />
+              <div className="col-span-3 flex items-center justify-end gap-1.5">
+                <span className="font-medium">
+                  ₹{(row.amount || 0).toFixed(2)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(i)}
+                  className="text-textSecondary hover:text-danger"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="grid grid-cols-12 px-2 py-2.5 bg-surface text-sm font-bold">
           <div className="col-span-9">Total</div>
