@@ -164,7 +164,7 @@ function BilledItemsTable({
         </div>
       )}
 
-      <div className="rounded-control border border-white/10 overflow-hidden">
+      <div className="rounded-control border border-white/10 overflow-hidden compact-table">
         <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-2 text-[10px] font-medium text-textSecondary">
           <div className="col-span-5">Item Name</div>
           <div className="col-span-2 text-right">
@@ -221,8 +221,8 @@ function BilledItemsTable({
                 className="col-span-2 bg-surface border border-white/10 rounded px-1 py-1.5 text-right text-xs focus:outline-none focus:border-primary"
               />
               <div className="col-span-3 flex items-center justify-end gap-1.5">
-                <span className="font-medium">
-                  ₹{(row.amount || 0).toFixed(2)}
+                <span className="font-medium rupee-amount">
+                  {(row.amount || 0).toFixed(2)}
                 </span>
                 <button
                   type="button"
@@ -236,9 +236,11 @@ function BilledItemsTable({
           );
         })}
 
-        <div className="grid grid-cols-12 px-2 py-2.5 bg-surface text-sm font-bold">
+        <div className="grid grid-cols-12 px-2 py-2.5 bg-surface text-sm font-bold compact-table-total">
           <div className="col-span-9">Total</div>
-          <div className="col-span-3 text-right">₹{total.toFixed(2)}</div>
+          <div className="col-span-3 text-right rupee-amount">
+            {total.toFixed(2)}
+          </div>
         </div>
       </div>
 

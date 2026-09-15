@@ -146,7 +146,7 @@ function SaleList() {
               </div>
             </div>
 
-            <div className="rounded-control border border-white/10 overflow-hidden">
+            <div className="rounded-control border border-white/10 overflow-hidden compact-table">
               <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-1.5 text-[9px] font-medium text-textSecondary">
                 <div className="col-span-5">Item</div>
                 <div className="col-span-2 text-right">Qty</div>
@@ -160,11 +160,11 @@ function SaleList() {
                 >
                   <div className="col-span-5 truncate">{item.productName}</div>
                   <div className="col-span-2 text-right">{item.qtySold}</div>
-                  <div className="col-span-2 text-right">
-                    ₹{item.mrpAtSale.toFixed(2)}
+                  <div className="col-span-2 text-right rupee-amount">
+                    {item.mrpAtSale.toFixed(2)}
                   </div>
-                  <div className="col-span-3 text-right font-medium">
-                    ₹{item.total.toFixed(2)}
+                  <div className="col-span-3 text-right font-medium rupee-amount">
+                    {item.total.toFixed(2)}
                   </div>
                 </div>
               ))}

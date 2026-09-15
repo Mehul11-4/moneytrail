@@ -48,9 +48,29 @@ body {
     border-color 0.3s ease;
 }
 
+/* Small utility: consistent spacing after the rupee symbol everywhere,
+   so it never visually crowds into the number beside it on narrow screens. */
+.rupee-amount {
+  white-space: nowrap;
+}
+.rupee-amount::before {
+  content: "₹";
+  margin-right: 2px;
+}
+
 /* Improve readability for small Tailwind text */
 .text-xs {
   font-size: 0.9rem !important;
+}
+
+/* Tight grid/table cells (Billed Items, Sale List, Purchase List) need to
+   stay compact regardless of the app-wide text size boost above — otherwise
+   currency figures and labels overlap or wrap awkwardly on narrow phones. */
+.compact-table * {
+  font-size: 0.72rem !important;
+}
+.compact-table .compact-table-total {
+  font-size: 0.85rem !important;
 }
 
 .text-sm {
