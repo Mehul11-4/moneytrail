@@ -155,7 +155,9 @@ function PurchaseList() {
                   className="grid grid-cols-12 px-2 py-1.5 text-xs border-b border-white/5 last:border-b-0"
                 >
                   <div className="col-span-5 truncate">{item.productName}</div>
-                  <div className="col-span-2 text-right">{item.qty}</div>
+                  <div className="col-span-2 text-right">
+                    {item.units ?? item.qty}
+                  </div>
                   <div className="col-span-2 text-right">
                     ₹{item.rate.toFixed(2)}
                   </div>
