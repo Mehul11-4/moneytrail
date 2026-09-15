@@ -37,6 +37,7 @@ export function usePurchases() {
     newProductDetails,
     qty,
     rate,
+    unitRate,
     purchaseDate,
   }) => {
     let finalProductId = productId;
@@ -69,12 +70,26 @@ export function usePurchases() {
         console.error("Supabase adjust stock (purchase) error:", rpcErr);
         throw rpcErr;
       }
+
       const { data: product } = await supabase
         .from("products")
-        .select("name")
+        .select("name, unit_purchase_price")
         .eq("id", productId)
         .single();
       productName = product?.name || "Unknown";
+
+      // If the rate entered this time differs from what's stored, update it
+      // so the next restock pre-fills with the latest price. This is a plain
+      // field assignment (not a running total), so it carries none of the
+      // race-condition risk that stock quantity updates do.
+      if (unitRate && product && unitRate !== product.unit_purchase_price) {
+        const { error: priceErr } = await supabase
+          .from("products")
+          .update({ unit_purchase_price: unitRate })
+          .eq("id", productId);
+        if (priceErr)
+          console.error("Supabase update product price error:", priceErr);
+      }
     }
 
     await loadProducts();

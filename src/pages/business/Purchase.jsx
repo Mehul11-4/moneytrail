@@ -120,8 +120,9 @@ function Purchase() {
         productId: row.productId,
         isNewProduct: !!row.isNewProduct,
         newProductDetails: row.newProductDetails,
-        qty: parseFloat(row.qty),
-        rate: parseFloat(row.rate),
+        qty: parseFloat(row.qty), // pieces — already converted from units × qtyPerUnit
+        rate: parseFloat(row.rate), // per-unit price (what the user typed/saw pre-filled)
+        unitRate: !row.isNewProduct ? parseFloat(row.rate) : null,
       }));
 
       if (itemPayloads.length === 1) {

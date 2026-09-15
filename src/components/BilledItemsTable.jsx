@@ -86,8 +86,10 @@ function BilledItemsTable({
       productName: product.name,
       isStatic: product.is_static,
       unitLabel: product.unit_label,
-      rate: unitMode ? "" : product.mrp_per_qty,
-      qty: unitMode ? "" : "",
+      // In unit mode, pre-fill the rate from what this product was last
+      // purchased at per unit — still editable if the price has changed.
+      rate: unitMode ? product.unit_purchase_price || "" : product.mrp_per_qty,
+      qty: "",
       units: "",
     });
     setPickerRowIndex(null);
