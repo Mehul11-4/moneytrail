@@ -9,6 +9,13 @@ export function usePurchases() {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const getNextInvoiceNo = async () => {
+    const { count } = await supabase
+      .from("purchases")
+      .select("*", { count: "exact", head: true });
+    return (count || 0) + 1;
+  };
+
   const loadPurchases = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -103,6 +110,7 @@ export function usePurchases() {
       hour: "2-digit",
       minute: "2-digit",
     });
+    const invoiceNo = await getNextInvoiceNo();
 
     const { productId, productName } = await recordPurchaseItem({
       ...item,
@@ -111,6 +119,7 @@ export function usePurchases() {
 
     const { error } = await supabase.from("purchases").insert({
       user_id: user.id,
+      invoice_no: invoiceNo,
       product_id: productId,
       product_name: productName,
       qty: item.qty,
@@ -118,7 +127,9 @@ export function usePurchases() {
       rate: item.rate,
       total: item.total, // use the exact amount the user saw — never recompute
       party_name: meta.partyName,
+      billing_name: meta.billingName || meta.partyName,
       party_phone: meta.partyPhone,
+      received_amount: meta.paidAmount,
       payment_mode: meta.paymentMode,
       date: finalDate,
       time,
@@ -138,15 +149,17 @@ export function usePurchases() {
       minute: "2-digit",
     });
     const transactionId = crypto.randomUUID();
+    const invoiceNo = await getNextInvoiceNo();
 
     const rows = [];
-    for (const item of items) {
+    for (const [i, item] of items.entries()) {
       const { productId, productName } = await recordPurchaseItem({
         ...item,
         purchaseDate: finalDate,
       });
       rows.push({
         user_id: user.id,
+        invoice_no: invoiceNo,
         product_id: productId,
         product_name: productName,
         qty: item.qty,
@@ -154,7 +167,11 @@ export function usePurchases() {
         rate: item.rate,
         total: item.total, // use the exact amount the user saw — never recompute
         party_name: meta.partyName,
+        billing_name: meta.billingName || meta.partyName,
         party_phone: meta.partyPhone,
+        // Received amount applies to the whole transaction — store it on the
+        // first row only, matching how Sale handles multi-item transactions.
+        received_amount: i === 0 ? meta.paidAmount : 0,
         payment_mode: meta.paymentMode,
         date: finalDate,
         time,
@@ -203,6 +220,7 @@ export function usePurchases() {
 function mapFromDb(rows) {
   return rows.map((p) => ({
     id: p.id,
+    invoiceNo: p.invoice_no,
     productId: p.product_id,
     productName: p.product_name,
     qty: p.qty,
@@ -210,7 +228,9 @@ function mapFromDb(rows) {
     rate: p.rate,
     total: p.total,
     partyName: p.party_name,
+    billingName: p.billing_name,
     partyPhone: p.party_phone,
+    receivedAmount: p.received_amount || 0,
     paymentMode: p.payment_mode,
     date: p.date,
     time: p.time,
