@@ -25,7 +25,6 @@ import SaleList from "./pages/business/SaleList";
 import Purchase from "./pages/business/Purchase";
 import PurchaseList from "./pages/business/PurchaseList";
 import Inventory from "./pages/business/Inventory";
-import JamaKharch from "./pages/business/JamaKharch";
 import LedgerCategory from "./pages/business/LedgerCategory";
 import ProfitLoss from "./pages/business/ProfitLoss";
 import LoanTaken from "./pages/business/LoanTaken";
@@ -154,14 +153,7 @@ function AnimatedRoutes() {
             </PageWrapper>
           }
         />
-        <Route
-          path="/business/jama-kharch"
-          element={
-            <PageWrapper>
-              <JamaKharch />
-            </PageWrapper>
-          }
-        />
+
         <Route
           path="/business/jama-kharch/:slug"
           element={
