@@ -35,6 +35,7 @@ function BusinessDashboard() {
   const { loans } = useLoans();
   const { entries } = useLedger();
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const toReceive = useMemo(
     () =>
@@ -189,28 +190,35 @@ function BusinessDashboard() {
           <p className="text-sm font-medium text-textSecondary mb-2">
             Balance History
           </p>
-          <div className="flex flex-col gap-2">
-            {balanceHistory.map((day) => (
-              <Card key={day.date}>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {formatDate(day.date)}
-                    </p>
-                    <p className="text-xs text-textSecondary">
-                      Jama ₹{day.jama.toFixed(2)} · Kharch ₹
-                      {day.kharch.toFixed(2)}
-                    </p>
-                  </div>
+          <Card className="!p-0 overflow-hidden">
+            {(showAllHistory ? balanceHistory : balanceHistory.slice(0, 5)).map(
+              (day, i) => (
+                <div
+                  key={day.date}
+                  className={`flex justify-between items-center px-3 py-2.5 ${i !== 0 ? "border-t border-white/5" : ""}`}
+                >
+                  <p className="text-xs text-textSecondary">
+                    {formatDate(day.date)}
+                  </p>
                   <p
-                    className={`font-heading font-bold ${day.closingBalance >= 0 ? "text-success" : "text-danger"}`}
+                    className={`text-sm font-bold ${day.closingBalance >= 0 ? "text-success" : "text-danger"}`}
                   >
                     ₹{day.closingBalance.toFixed(2)}
                   </p>
                 </div>
-              </Card>
-            ))}
-          </div>
+              ),
+            )}
+          </Card>
+          {balanceHistory.length > 5 && (
+            <button
+              onClick={() => setShowAllHistory(!showAllHistory)}
+              className="w-full text-center text-xs text-primary font-medium py-2"
+            >
+              {showAllHistory
+                ? "Show Less"
+                : `Show All (${balanceHistory.length} days)`}
+            </button>
+          )}
         </div>
       )}
 
