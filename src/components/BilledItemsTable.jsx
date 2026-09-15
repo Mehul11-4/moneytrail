@@ -10,6 +10,14 @@ function BilledItemsTable({
   unitMode = false,
 }) {
   const [entryMode, setEntryMode] = useState("existing"); // "existing" | "new"
+
+  // Once the cart has items, lock the mode to whatever type those items
+  // already are — prevents mixing "restock existing" and "brand new
+  // product" rows in the same bill, which is what made Units vs Pieces
+  // ambiguous before.
+  const cartLockedMode =
+    items.length > 0 ? (items[0].isNewProduct ? "new" : "existing") : null;
+  const effectiveMode = cartLockedMode || entryMode;
   const [pickerRowIndex, setPickerRowIndex] = useState(null);
   const [search, setSearch] = useState("");
   const [showNewProductForm, setShowNewProductForm] = useState(false);
@@ -24,8 +32,12 @@ function BilledItemsTable({
       prev.map((row, i) => {
         if (i !== index) return row;
         const merged = { ...row, ...updates };
-
-        if (unitMode && !merged.isNewProduct && merged.productId) {
+        if (
+          unitMode &&
+          effectiveMode === "existing" &&
+          !merged.isNewProduct &&
+          merged.productId
+        ) {
           // Existing products: user enters UNITS (e.g. Packs), we calculate
           // actual pieces and per-piece rate behind the scenes.
           const product = products.find((p) => p.id === merged.productId);
@@ -45,9 +57,6 @@ function BilledItemsTable({
   };
 
   const addRow = () => {
-    // If the last row is still empty/incomplete (e.g. from a fast double-tap,
-    // or the user tapped Add Item but never picked anything), reuse it
-    // instead of creating another blank row.
     const lastRow = items[items.length - 1];
     const lastRowIncomplete =
       lastRow && !lastRow.productId && !lastRow.isNewProduct;
@@ -69,7 +78,7 @@ function BilledItemsTable({
       setPickerRowIndex(items.length);
     }
     setSearch("");
-    setShowNewProductForm(entryMode === "new");
+    setShowNewProductForm(effectiveMode === "new");
   };
   const removeRow = (index) =>
     setItems((prev) => prev.filter((_, i) => i !== index));
@@ -77,7 +86,7 @@ function BilledItemsTable({
   const openPicker = (index) => {
     setPickerRowIndex(index);
     setSearch("");
-    setShowNewProductForm(entryMode === "new");
+    setShowNewProductForm(effectiveMode === "new");
   };
 
   const selectProduct = (product) => {
@@ -138,29 +147,38 @@ function BilledItemsTable({
   return (
     <div>
       {allowNewProduct && (
-        <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => setEntryMode("existing")}
-            className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
-              entryMode === "existing"
-                ? "bg-primary text-background border-primary"
-                : "bg-surface border-white/10 text-textSecondary"
-            }`}
-          >
-            Existing Product
-          </button>
-          <button
-            type="button"
-            onClick={() => setEntryMode("new")}
-            className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
-              entryMode === "new"
-                ? "bg-primary text-background border-primary"
-                : "bg-surface border-white/10 text-textSecondary"
-            }`}
-          >
-            New Product
-          </button>
+        <div className="mb-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!!cartLockedMode}
+              onClick={() => setEntryMode("existing")}
+              className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
+                effectiveMode === "existing"
+                  ? "bg-primary text-background border-primary"
+                  : "bg-surface border-white/10 text-textSecondary"
+              } ${cartLockedMode ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              Existing Product
+            </button>
+            <button
+              type="button"
+              disabled={!!cartLockedMode}
+              onClick={() => setEntryMode("new")}
+              className={`flex-1 py-2 rounded-control text-sm font-medium border transition-colors ${
+                effectiveMode === "new"
+                  ? "bg-primary text-background border-primary"
+                  : "bg-surface border-white/10 text-textSecondary"
+              } ${cartLockedMode ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              New Product
+            </button>
+          </div>
+          {cartLockedMode && (
+            <p className="text-[10px] text-textSecondary/70 mt-1.5">
+              Clear all items to switch between Existing and New Product.
+            </p>
+          )}
         </div>
       )}
 
@@ -177,7 +195,11 @@ function BilledItemsTable({
         </div>
 
         {items.map((row, i) => {
-          const isUnitMode = unitMode && !row.isNewProduct && row.productId;
+          const isUnitMode =
+            unitMode &&
+            effectiveMode === "existing" &&
+            !row.isNewProduct &&
+            row.productId;
           return (
             <div
               key={i}

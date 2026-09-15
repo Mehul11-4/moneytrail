@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import { FileText, Search, Trash2 } from "lucide-react";
 import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
+import { useProducts } from "../../hooks/useProducts";
 import { formatDate } from "../../utils/formatDate";
 
 function SaleList() {
   const { sales, loading, deleteSale } = useSales();
+  const { restoreStockQty } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -58,6 +60,7 @@ function SaleList() {
   const handleDeleteBlock = async (block) => {
     for (const item of block.items) {
       await deleteSale(item.id);
+      await restoreStockQty(item.productId, item.qtySold);
     }
     setConfirmDelete(null);
   };
