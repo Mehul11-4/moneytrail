@@ -108,6 +108,24 @@ function BusinessDashboard() {
       .reverse();
   }, [sales, purchases, entries]);
 
+  const groupedHistoryByMonth = useMemo(() => {
+    const groups = {};
+    const order = [];
+    balanceHistory.forEach((day) => {
+      const monthKey = day.date.slice(0, 7); // "YYYY-MM"
+      const monthLabel = new Date(day.date).toLocaleDateString("en-IN", {
+        month: "long",
+        year: "numeric",
+      });
+      if (!groups[monthKey]) {
+        groups[monthKey] = { monthLabel, days: [] };
+        order.push(monthKey);
+      }
+      groups[monthKey].days.push(day);
+    });
+    return order.map((key) => groups[key]);
+  }, [balanceHistory]);
+
   const quickAccess = [
     { to: "/business/sale", icon: ShoppingCart, label: "Sale" },
     { to: "/business/purchase", icon: ShoppingBag, label: "Purchase" },
@@ -190,9 +208,10 @@ function BusinessDashboard() {
           <p className="text-sm font-medium text-textSecondary mb-2">
             Balance History
           </p>
-          <Card className="!p-0 overflow-hidden">
-            {(showAllHistory ? balanceHistory : balanceHistory.slice(0, 5)).map(
-              (day, i) => (
+
+          {!showAllHistory ? (
+            <Card className="!p-0 overflow-hidden">
+              {balanceHistory.slice(0, 3).map((day, i) => (
                 <div
                   key={day.date}
                   className={`flex justify-between items-center px-3 py-2.5 ${i !== 0 ? "border-t border-white/5" : ""}`}
@@ -206,17 +225,43 @@ function BusinessDashboard() {
                     ₹{day.closingBalance.toFixed(2)}
                   </p>
                 </div>
-              ),
-            )}
-          </Card>
-          {balanceHistory.length > 5 && (
+              ))}
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {groupedHistoryByMonth.map(({ monthLabel, days }) => (
+                <div key={monthLabel}>
+                  <p className="text-xs font-medium text-textSecondary mb-1.5">
+                    {monthLabel}
+                  </p>
+                  <Card className="!p-0 overflow-hidden">
+                    {days.map((day, i) => (
+                      <div
+                        key={day.date}
+                        className={`flex justify-between items-center px-3 py-2.5 ${i !== 0 ? "border-t border-white/5" : ""}`}
+                      >
+                        <p className="text-xs text-textSecondary">
+                          {formatDate(day.date)}
+                        </p>
+                        <p
+                          className={`text-sm font-bold ${day.closingBalance >= 0 ? "text-success" : "text-danger"}`}
+                        >
+                          ₹{day.closingBalance.toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {balanceHistory.length > 3 && (
             <button
               onClick={() => setShowAllHistory(!showAllHistory)}
               className="w-full text-center text-xs text-primary font-medium py-2"
             >
-              {showAllHistory
-                ? "Show Less"
-                : `Show All (${balanceHistory.length} days)`}
+              {showAllHistory ? "Show Less" : "Show All"}
             </button>
           )}
         </div>
