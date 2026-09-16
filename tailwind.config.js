@@ -13,6 +13,8 @@ export default {
         success: "var(--color-success)",
         danger: "var(--color-danger)",
         warning: "var(--color-warning)",
+        inventory: "var(--color-inventory)",
+        parties: "var(--color-parties)",
       },
       fontFamily: {
         heading: ["Space Grotesk", "sans-serif"],

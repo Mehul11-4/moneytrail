@@ -137,10 +137,30 @@ function BusinessDashboard() {
   }, [balanceHistory]);
 
   const quickAccess = [
-    { to: "/business/sale", icon: ShoppingCart, label: "Sale" },
-    { to: "/business/purchase", icon: ShoppingBag, label: "Purchase" },
-    { to: "/business/udhaar-given", icon: Users, label: "Parties" },
-    { to: "/business/inventory", icon: Package, label: "Inventory" },
+    {
+      to: "/business/sale",
+      icon: ShoppingCart,
+      label: "Sale",
+      color: "text-primary",
+    },
+    {
+      to: "/business/purchase",
+      icon: ShoppingBag,
+      label: "Purchase",
+      color: "text-secondary",
+    },
+    {
+      to: "/business/udhaar-given",
+      icon: Users,
+      label: "Parties",
+      color: "text-parties",
+    },
+    {
+      to: "/business/inventory",
+      icon: Package,
+      label: "Inventory",
+      color: "text-inventory",
+    },
   ];
 
   return (
@@ -207,13 +227,13 @@ function BusinessDashboard() {
         Quick Access
       </p>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        {quickAccess.map(({ to, icon: Icon, label }) => (
+        {quickAccess.map(({ to, icon: Icon, label, color }) => (
           <button
             key={to}
             onClick={() => navigate(to)}
             className="flex flex-col items-center justify-center gap-2 bg-surface border border-white/5 rounded-card py-6 shadow-sm hover:shadow-md hover:border-white/10 transition-shadow"
           >
-            <Icon className="w-6 h-6 text-primary" />
+            <Icon className={`w-6 h-6 ${color}`} />
             <span className="text-sm font-medium text-center px-1">
               {label}
             </span>

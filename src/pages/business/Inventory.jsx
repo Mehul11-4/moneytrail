@@ -178,7 +178,7 @@ function Inventory() {
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-2">
-        <Package className="w-7 h-7 text-primary" />
+        <Package className="w-7 h-7 text-inventory" />
         <h1 className="text-2xl font-heading font-bold">Inventory</h1>
       </div>
       <p className="text-xs text-textSecondary mb-4">

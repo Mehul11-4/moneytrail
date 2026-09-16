@@ -17,6 +17,8 @@ html {
   --color-success: #22c55e;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
+  --color-inventory: #f59e0b;
+  --color-parties: #a855f7;
 }
 
 .theme-light {
@@ -29,6 +31,8 @@ html {
   --color-success: #16a34a;
   --color-danger: #dc2626;
   --color-warning: #d97706;
+  --color-inventory: #d97706;
+  --color-parties: #9333ea;
 }
 
 body {

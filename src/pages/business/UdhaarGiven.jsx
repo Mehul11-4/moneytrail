@@ -42,16 +42,16 @@ function UdhaarGiven() {
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
       <div className="flex items-center gap-3 mt-6 mb-1">
-        <Users className="w-7 h-7 text-warning" />
-        <h1 className="text-2xl font-heading font-bold">Udhaar Given</h1>
+        <Users className="w-7 h-7 text-parties" />
+        <h1 className="text-2xl font-heading font-bold">Parties</h1>
       </div>
       <p className="text-xs text-textSecondary mb-4">Money customers owe you</p>
 
-      <Card className="mb-4 border-warning/40">
+      <Card className="mb-4 border-parties/40">
         <p className="text-textSecondary text-sm mb-1">
           Total Owed (All Customers)
         </p>
-        <p className="text-2xl font-heading font-bold text-warning">
+        <p className="text-2xl font-heading font-bold text-parties">
           ₹{totalAllOwed.toFixed(2)}
         </p>
       </Card>
