@@ -280,7 +280,7 @@ function Purchase() {
           </Card>
 
           <Button
-            variant="danger"
+            variant="accent"
             onClick={handleCompletePurchase}
             disabled={isSubmitting}
           >

@@ -13,11 +13,13 @@ function Button({
 
   const variants = {
     primary:
-      "bg-primary text-background hover:bg-emerald-400 hover:shadow-md hover:shadow-primary/20",
+      "bg-primary text-background hover:bg-emerald-400 hover:shadow-md hover:shadow-primary/20", // green — confirm, save, money in
     secondary:
-      "bg-surface text-textPrimary border border-white/10 hover:bg-white/5",
+      "bg-surface text-textPrimary border border-white/10 hover:bg-white/5", // grey — neutral, cancel
     danger:
-      "bg-danger text-white hover:bg-red-500 hover:shadow-md hover:shadow-danger/20",
+      "bg-danger text-white hover:bg-red-500 hover:shadow-md hover:shadow-danger/20", // red — delete only
+    accent:
+      "bg-secondary text-white hover:bg-indigo-400 hover:shadow-md hover:shadow-secondary/20", // blue — purchase, money out (not destructive)
   };
 
   return (

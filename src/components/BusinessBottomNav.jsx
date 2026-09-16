@@ -1,11 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { Store, FileText, ShoppingCart, Package } from "lucide-react";
+import { Store, FileText, ShoppingCart, HandCoins } from "lucide-react";
 
 const navItems = [
   { to: "/business/home", icon: Store, label: "Home" },
   { to: "/business/sale-list", icon: FileText, label: "Sale List" },
   { to: "/business/purchase-list", icon: ShoppingCart, label: "Purchase List" },
-  { to: "/business/inventory", icon: Package, label: "Inventory" },
+  { to: "/business/loan-taken", icon: HandCoins, label: "Loan Taken" },
 ];
 
 function BusinessBottomNav() {

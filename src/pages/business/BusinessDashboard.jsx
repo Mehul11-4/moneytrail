@@ -5,7 +5,7 @@ import {
   ShoppingCart,
   ShoppingBag,
   Users,
-  HandCoins,
+  Package,
   Plus,
   X,
 } from "lucide-react";
@@ -51,13 +51,23 @@ function BusinessDashboard() {
   );
 
   const todayStr = new Date().toISOString().split("T")[0];
-  const todayTotal = useMemo(
-    () =>
-      sales
-        .filter((s) => s.date === todayStr)
-        .reduce((sum, s) => sum + s.total, 0),
+  const todaySalesList = useMemo(
+    () => sales.filter((s) => s.date === todayStr),
     [sales, todayStr],
   );
+  const todayTotal = useMemo(
+    () => todaySalesList.reduce((sum, s) => sum + s.total, 0),
+    [todaySalesList],
+  );
+
+  // Profit per unit = MRP at sale − Cost price at sale, summed across today's
+  // quantities sold. Naturally resets each day since it's filtered by todayStr.
+  const todayProfit = useMemo(() => {
+    return todaySalesList.reduce((sum, s) => {
+      const profitPerPiece = (s.mrpAtSale || 0) - (s.pricePerQtyAtSale || 0);
+      return sum + profitPerPiece * (s.qtySold || 0);
+    }, 0);
+  }, [todaySalesList]);
 
   // ---- Total Balance (moved from Jama-Kharch) ----
   const totalJamaAllTime = useMemo(() => {
@@ -130,7 +140,7 @@ function BusinessDashboard() {
     { to: "/business/sale", icon: ShoppingCart, label: "Sale" },
     { to: "/business/purchase", icon: ShoppingBag, label: "Purchase" },
     { to: "/business/udhaar-given", icon: Users, label: "Parties" },
-    { to: "/business/loan-taken", icon: HandCoins, label: "Loan Taken" },
+    { to: "/business/inventory", icon: Package, label: "Inventory" },
   ];
 
   return (
@@ -175,15 +185,23 @@ function BusinessDashboard() {
         </Card>
       </div>
 
-      <Card
-        className="mb-6 border-primary/30"
-        onClick={() => navigate("/business/sale")}
-      >
-        <p className="text-textSecondary text-sm mb-1">Today's Sales</p>
-        <p className="text-2xl font-heading font-bold text-primary">
-          ₹{todayTotal.toFixed(2)}
-        </p>
-      </Card>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Card
+          className="border-primary/30"
+          onClick={() => navigate("/business/sale")}
+        >
+          <p className="text-textSecondary text-xs mb-1">Today's Sales</p>
+          <p className="text-xl font-heading font-bold text-primary">
+            ₹{todayTotal.toFixed(2)}
+          </p>
+        </Card>
+        <Card className="border-success/30">
+          <p className="text-textSecondary text-xs mb-1">Today's Profit</p>
+          <p className="text-xl font-heading font-bold text-success">
+            ₹{todayProfit.toFixed(2)}
+          </p>
+        </Card>
+      </div>
 
       <p className="text-sm font-medium text-textSecondary mb-3">
         Quick Access

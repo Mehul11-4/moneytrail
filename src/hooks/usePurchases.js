@@ -80,19 +80,23 @@ export function usePurchases() {
 
       const { data: product } = await supabase
         .from("products")
-        .select("name, unit_purchase_price")
+        .select("name, unit_purchase_price, qty_per_unit")
         .eq("id", productId)
         .single();
       productName = product?.name || "Unknown";
 
-      // If the rate entered this time differs from what's stored, update it
-      // so the next restock pre-fills with the latest price. This is a plain
-      // field assignment (not a running total), so it carries none of the
-      // race-condition risk that stock quantity updates do.
+      // If the rate entered this time differs from what's stored, update
+      // BOTH the per-Unit price (pre-fills next restock) AND the per-piece
+      // Cost Price shown in Inventory — price_per_qty = unitRate / qtyPerUnit.
       if (unitRate && product && unitRate !== product.unit_purchase_price) {
+        const qtyPerUnit = product.qty_per_unit || 1;
+        const newCostPerPiece = unitRate / qtyPerUnit;
         const { error: priceErr } = await supabase
           .from("products")
-          .update({ unit_purchase_price: unitRate })
+          .update({
+            unit_purchase_price: unitRate,
+            price_per_qty: newCostPerPiece,
+          })
           .eq("id", productId);
         if (priceErr)
           console.error("Supabase update product price error:", priceErr);
