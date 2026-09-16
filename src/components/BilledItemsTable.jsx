@@ -34,19 +34,21 @@ function BilledItemsTable({
         const merged = { ...row, ...updates };
         if (
           unitMode &&
-          effectiveMode === "existing" &&
-          !merged.isNewProduct &&
-          merged.productId
+          (merged.productId ||
+            (merged.isNewProduct && merged.newProductDetails))
         ) {
-          // Existing products: user enters UNITS (e.g. Packs), we calculate
-          // actual pieces and per-piece rate behind the scenes.
-          const product = products.find((p) => p.id === merged.productId);
-          const qtyPerUnit = product?.qty_per_unit || 1;
+          // Both existing AND new products (in Purchase): user enters UNITS
+          // (e.g. Packs) and Rate PER UNIT — we calculate actual pieces and
+          // per-piece cost behind the scenes, consistently either way.
+          const qtyPerUnit = merged.isNewProduct
+            ? merged.newProductDetails?.qtyPerUnit || 1
+            : products.find((p) => p.id === merged.productId)?.qty_per_unit ||
+              1;
           const units = parseFloat(merged.units) || 0;
           merged.qty = units * qtyPerUnit; // pieces — used for stock update
           merged.amount = units * (parseFloat(merged.rate) || 0);
         } else {
-          // New products: Qty is entered directly in pieces, same as before.
+          // Sale (unitMode false): Qty is entered directly in pieces.
           merged.amount =
             (parseFloat(merged.qty) || 0) * (parseFloat(merged.rate) || 0);
         }
@@ -117,6 +119,7 @@ function BilledItemsTable({
       productName: newName.trim(),
       isStatic: false,
       isNewProduct: true,
+      unitLabel: newUnitLabel.trim(),
       newProductDetails: {
         section: newSection,
         name: newName.trim(),
@@ -124,7 +127,8 @@ function BilledItemsTable({
         qtyPerUnit: parseFloat(newQtyPerUnit),
         mrpPerQty: parseFloat(newMrp) || 0,
       },
-      qty: items[pickerRowIndex]?.qty || "1",
+      units: "", // left blank — forces deliberate entry of real Units purchased
+      rate: "", // left blank — forces deliberate entry of real Rate PER UNIT
     });
     setShowNewProductForm(false);
     setNewSection("");
@@ -197,9 +201,7 @@ function BilledItemsTable({
         {items.map((row, i) => {
           const isUnitMode =
             unitMode &&
-            effectiveMode === "existing" &&
-            !row.isNewProduct &&
-            row.productId;
+            (row.productId || (row.isNewProduct && row.newProductDetails));
           return (
             <div
               key={i}

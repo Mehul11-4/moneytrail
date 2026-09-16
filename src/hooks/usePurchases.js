@@ -51,12 +51,14 @@ export function usePurchases() {
     let productName;
 
     if (isNewProduct) {
+      // `rate` is now already the PER-UNIT price (e.g. ₹140 per pack) —
+      // no multiplication needed, unlike the old buggy version.
       await addProduct({
         name: newProductDetails.name,
         section: newProductDetails.section,
         unitLabel: newProductDetails.unitLabel,
         qtyPerUnit: newProductDetails.qtyPerUnit,
-        unitPurchasePrice: rate * newProductDetails.qtyPerUnit,
+        unitPurchasePrice: rate,
         unitsPurchased: qty / newProductDetails.qtyPerUnit,
         mrpPerQty: newProductDetails.mrpPerQty,
       });
