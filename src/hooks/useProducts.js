@@ -107,9 +107,9 @@ export function useProducts() {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
       console.error("Supabase delete product error:", error);
-    } else {
-      await loadProducts();
+      throw error; // let the screen that called this show the real error to you
     }
+    await loadProducts();
   };
 
   const restockProduct = async (id, unitsAdded) => {

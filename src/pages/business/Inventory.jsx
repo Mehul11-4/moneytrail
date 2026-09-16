@@ -106,8 +106,15 @@ function Inventory() {
   };
 
   const handleDelete = async () => {
-    await deleteProduct(selected.id);
-    closeDetail();
+    try {
+      await deleteProduct(selected.id);
+      closeDetail();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Could not delete this product. It may have linked sale/purchase history.",
+      );
+    }
   };
 
   const handleSave = async () => {
