@@ -13,7 +13,6 @@ import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
 import { usePurchases } from "../../hooks/usePurchases";
 import { useLoans } from "../../hooks/useLoans";
-import { useLedger } from "../../hooks/useLedger";
 import { formatDate } from "../../utils/formatDate";
 
 const JAMA_KHARCH_CATEGORIES = [
@@ -33,7 +32,6 @@ function BusinessDashboard() {
   const { sales } = useSales();
   const { purchases } = usePurchases();
   const { loans } = useLoans();
-  const { entries } = useLedger();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
@@ -70,53 +68,43 @@ function BusinessDashboard() {
   }, [todaySalesList]);
 
   // ---- Total Balance (moved from Jama-Kharch) ----
-  const totalJamaAllTime = useMemo(() => {
-    const ledgerJama = entries
-      .filter((e) => e.type === "jama")
-      .reduce((s, e) => s + e.amount, 0);
-    const salesJama = sales.reduce((s, sale) => s + sale.total, 0);
-    return ledgerJama + salesJama;
-  }, [entries, sales]);
-
-  const totalKharchAllTime = useMemo(() => {
-    const ledgerKharch = entries
-      .filter((e) => e.type === "kharch")
-      .reduce((s, e) => s + e.amount, 0);
-    const purchaseKharch = purchases.reduce((s, p) => s + p.total, 0);
-    return ledgerKharch + purchaseKharch;
-  }, [entries, purchases]);
-
-  const totalBalance = totalJamaAllTime - totalKharchAllTime;
+  // Cash in Hand: purely Sale money in minus Purchase money out —
+  // deliberately excludes Capital, Loans, Rent, Electricity, and other
+  // Jama-Kharch entries, which are tracked separately via the "+" menu.
+  const totalSalesAllTime = useMemo(
+    () => sales.reduce((s, sale) => s + sale.total, 0),
+    [sales],
+  );
+  const totalPurchasesAllTime = useMemo(
+    () => purchases.reduce((s, p) => s + p.total, 0),
+    [purchases],
+  );
+  const cashInHand = totalSalesAllTime - totalPurchasesAllTime;
 
   const balanceHistory = useMemo(() => {
     const byDate = {};
     sales.forEach((s) => {
-      byDate[s.date] = byDate[s.date] || { jama: 0, kharch: 0 };
-      byDate[s.date].jama += s.total;
+      byDate[s.date] = byDate[s.date] || { sale: 0, purchase: 0 };
+      byDate[s.date].sale += s.total;
     });
     purchases.forEach((p) => {
-      byDate[p.date] = byDate[p.date] || { jama: 0, kharch: 0 };
-      byDate[p.date].kharch += p.total;
-    });
-    entries.forEach((e) => {
-      byDate[e.date] = byDate[e.date] || { jama: 0, kharch: 0 };
-      if (e.type === "jama") byDate[e.date].jama += e.amount;
-      else byDate[e.date].kharch += e.amount;
+      byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
+      byDate[p.date].purchase += p.total;
     });
     const sortedDates = Object.keys(byDate).sort();
     let running = 0;
     return sortedDates
       .map((date) => {
-        running += byDate[date].jama - byDate[date].kharch;
+        running += byDate[date].sale - byDate[date].purchase;
         return {
           date,
-          jama: byDate[date].jama,
-          kharch: byDate[date].kharch,
+          sale: byDate[date].sale,
+          purchase: byDate[date].purchase,
           closingBalance: running,
         };
       })
       .reverse();
-  }, [sales, purchases, entries]);
+  }, [sales, purchases]);
 
   const groupedHistoryByMonth = useMemo(() => {
     const groups = {};
@@ -174,13 +162,16 @@ function BusinessDashboard() {
       </div>
 
       <Card
-        className={`mb-4 ${totalBalance >= 0 ? "border-success/40" : "border-danger/40"}`}
+        className={`mb-4 ${cashInHand >= 0 ? "border-success/40" : "border-danger/40"}`}
       >
-        <p className="text-textSecondary text-sm mb-1">Total Balance</p>
+        <p className="text-textSecondary text-sm mb-1">Cash in Hand</p>
         <p
-          className={`text-3xl font-heading font-bold ${totalBalance >= 0 ? "text-success" : "text-danger"}`}
+          className={`text-3xl font-heading font-bold ${cashInHand >= 0 ? "text-success" : "text-danger"}`}
         >
-          ₹{totalBalance.toFixed(2)}
+          ₹{cashInHand.toFixed(2)}
+        </p>
+        <p className="text-[10px] text-textSecondary/70 mt-1">
+          From Sale and Purchase only
         </p>
       </Card>
 
