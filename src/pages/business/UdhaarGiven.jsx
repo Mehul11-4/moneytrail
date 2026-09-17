@@ -12,12 +12,6 @@ function UdhaarGiven() {
   const [payAmount, setPayAmount] = useState("");
   const [payError, setPayError] = useState("");
 
-  // Always derive the LIVE version of whichever customer is open, so the
-  // modal reflects payments immediately instead of showing a stale snapshot.
-  const viewingCustomerLive = viewingCustomer
-    ? grouped.find((g) => g.name === viewingCustomer.name) || null
-    : null;
-
   const udhaarSales = useMemo(
     () => sales.filter((s) => s.paymentMode === "Udhaar"),
     [sales],
@@ -41,6 +35,12 @@ function UdhaarGiven() {
       }))
       .filter((g) => g.totalOwed > 0); // fully-paid-off customers drop out of this list automatically
   }, [udhaarSales]);
+
+  // Always derive the LIVE version of whichever customer is open, so the
+  // modal reflects payments immediately instead of showing a stale snapshot.
+  const viewingCustomerLive = viewingCustomer
+    ? grouped.find((g) => g.name === viewingCustomer.name) || null
+    : null;
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return grouped;
