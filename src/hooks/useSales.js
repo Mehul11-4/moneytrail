@@ -155,6 +155,34 @@ export function useSales() {
     }
     await loadSales();
   };
+  const recordPayment = async (saleId, additionalAmount) => {
+    const { data: sale, error: fetchErr } = await supabase
+      .from("sales")
+      .select("total, received_amount")
+      .eq("id", saleId)
+      .single();
+
+    if (fetchErr) {
+      console.error("Supabase fetch sale for payment error:", fetchErr);
+      throw fetchErr;
+    }
+
+    const newReceived = Math.min(
+      sale.total,
+      (sale.received_amount || 0) + additionalAmount,
+    );
+
+    const { error } = await supabase
+      .from("sales")
+      .update({ received_amount: newReceived })
+      .eq("id", saleId);
+
+    if (error) {
+      console.error("Supabase record payment error:", error);
+      throw error;
+    }
+    await loadSales();
+  };
   return {
     sales,
     loading,
@@ -162,6 +190,7 @@ export function useSales() {
     recordMultiSale,
     deleteSale,
     updateSale,
+    recordPayment,
   };
 }
 
