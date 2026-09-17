@@ -132,7 +132,7 @@ function Counter() {
       const meta = {
         paymentMode,
         customerName: customerName.trim() || null,
-        billingName: billingName.trim() || customerName.trim() || null,
+        billingName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
         receivedAmount: finalReceivedAmount,
         saleDate,
@@ -225,13 +225,6 @@ function Counter() {
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="e.g. Dipak Ji Jain"
-          />
-          <Input
-            label="Billing Name (Optional)"
-            name="billingName"
-            value={billingName}
-            onChange={(e) => setBillingName(e.target.value)}
-            placeholder="Defaults to Customer Name"
           />
           <Input
             label="Phone Number"

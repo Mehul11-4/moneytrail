@@ -155,7 +155,7 @@ export function useSales() {
     }
     await loadSales();
   };
-  const recordPayment = async (saleId, additionalAmount) => {
+  const recordPayment = async (saleId, additionalAmount, paymentDate) => {
     const { data: sale, error: fetchErr } = await supabase
       .from("sales")
       .select("total, received_amount")
@@ -181,7 +181,31 @@ export function useSales() {
       console.error("Supabase record payment error:", error);
       throw error;
     }
+
+    // Log this specific payment with its date, so we can show a full
+    // payment history later — separate from the running total on the sale.
+    const { error: logErr } = await supabase.from("udhaar_payments").insert({
+      user_id: user.id,
+      sale_id: saleId,
+      amount: additionalAmount,
+      payment_date: paymentDate || new Date().toISOString().split("T")[0],
+    });
+    if (logErr) console.error("Supabase log udhaar payment error:", logErr);
+
     await loadSales();
+  };
+
+  const getPaymentHistory = async (saleId) => {
+    const { data, error } = await supabase
+      .from("udhaar_payments")
+      .select("*")
+      .eq("sale_id", saleId)
+      .order("payment_date", { ascending: false });
+    if (error) {
+      console.error("Supabase fetch payment history error:", error);
+      return [];
+    }
+    return data;
   };
   return {
     sales,
@@ -191,6 +215,7 @@ export function useSales() {
     deleteSale,
     updateSale,
     recordPayment,
+    getPaymentHistory,
   };
 }
 

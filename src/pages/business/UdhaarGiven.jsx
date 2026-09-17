@@ -5,12 +5,16 @@ import { useSales } from "../../hooks/useSales";
 import { formatDate } from "../../utils/formatDate";
 
 function UdhaarGiven() {
-  const { sales, loading, recordPayment } = useSales();
+  const { sales, loading, recordPayment, getPaymentHistory } = useSales();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingCustomer, setViewingCustomer] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [payError, setPayError] = useState("");
+  const [paymentHistories, setPaymentHistories] = useState({}); // saleId -> [payments]
 
   const udhaarSales = useMemo(
     () => sales.filter((s) => s.paymentMode === "Udhaar"),
@@ -64,11 +68,29 @@ function UdhaarGiven() {
       );
 
     try {
-      await recordPayment(sale.id, amount);
+      await recordPayment(sale.id, amount, payDate);
       setPayingId(null);
       setPayAmount("");
+      loadHistoryFor(sale.id); // refresh the history list right away
     } catch (err) {
       setPayError(err.message || "Failed to record payment.");
+    }
+  };
+
+  const loadHistoryFor = async (saleId) => {
+    const history = await getPaymentHistory(saleId);
+    setPaymentHistories((prev) => ({ ...prev, [saleId]: history }));
+  };
+
+  const toggleHistory = (saleId) => {
+    if (paymentHistories[saleId]) {
+      setPaymentHistories((prev) => {
+        const next = { ...prev };
+        delete next[saleId];
+        return next;
+      });
+    } else {
+      loadHistoryFor(saleId);
     }
   };
 
@@ -205,22 +227,68 @@ function UdhaarGiven() {
                         <p className="font-heading font-bold text-sm">
                           ₹{s.total.toFixed(2)}
                         </p>
-                        {isPaid ? (
-                          <p className="text-[10px] text-success font-medium">
-                            Paid
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-danger font-medium">
-                            Due ₹{balanceDue.toFixed(2)}
-                          </p>
-                        )}
                       </div>
                     </div>
+
+                    <div className="flex justify-between items-center text-[10px] mb-1.5">
+                      <span className="text-success font-medium">
+                        Jama ₹{(s.receivedAmount || 0).toFixed(2)}
+                      </span>
+                      <span
+                        className={
+                          isPaid
+                            ? "text-success font-medium"
+                            : "text-danger font-medium"
+                        }
+                      >
+                        {isPaid ? "Paid" : `Bakaya ₹${balanceDue.toFixed(2)}`}
+                      </span>
+                    </div>
+
+                    {(s.receivedAmount || 0) > 0 && (
+                      <button
+                        onClick={() => toggleHistory(s.id)}
+                        className="text-[10px] text-textSecondary underline mb-1.5"
+                      >
+                        {paymentHistories[s.id]
+                          ? "Hide payment history"
+                          : "View payment history"}
+                      </button>
+                    )}
+
+                    {paymentHistories[s.id] && (
+                      <div className="flex flex-col gap-1 mb-1.5 pl-2 border-l border-white/10">
+                        {paymentHistories[s.id].length === 0 ? (
+                          <p className="text-[10px] text-textSecondary/70">
+                            No individual payments logged.
+                          </p>
+                        ) : (
+                          paymentHistories[s.id].map((p) => (
+                            <p
+                              key={p.id}
+                              className="text-[10px] text-textSecondary"
+                            >
+                              {formatDate(p.payment_date)} —{" "}
+                              <span className="text-success">
+                                ₹{p.amount.toFixed(2)}
+                              </span>
+                            </p>
+                          ))
+                        )}
+                      </div>
+                    )}
 
                     {!isPaid &&
                       (payingId === s.id ? (
                         <div className="flex flex-col gap-1.5 mt-1.5">
                           <div className="flex gap-1.5">
+                            <input
+                              type="date"
+                              value={payDate}
+                              max={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => setPayDate(e.target.value)}
+                              className="bg-background border border-white/10 rounded-control px-2 py-1.5 text-xs"
+                            />
                             <input
                               type="number"
                               autoFocus
@@ -229,9 +297,11 @@ function UdhaarGiven() {
                               placeholder={`up to ₹${balanceDue.toFixed(2)}`}
                               className="flex-1 bg-background border border-white/10 rounded-control px-2 py-1.5 text-xs"
                             />
+                          </div>
+                          <div className="flex gap-1.5">
                             <button
                               onClick={() => handleRecordPayment(s)}
-                              className="bg-primary text-background text-xs font-medium px-3 rounded-control"
+                              className="flex-1 bg-primary text-background text-xs font-medium py-1.5 rounded-control"
                             >
                               Save
                             </button>
@@ -241,7 +311,7 @@ function UdhaarGiven() {
                                 setPayAmount("");
                                 setPayError("");
                               }}
-                              className="text-textSecondary text-xs px-2"
+                              className="text-textSecondary text-xs px-3"
                             >
                               Cancel
                             </button>
@@ -257,6 +327,7 @@ function UdhaarGiven() {
                           onClick={() => {
                             setPayingId(s.id);
                             setPayAmount("");
+                            setPayDate(new Date().toISOString().split("T")[0]);
                             setPayError("");
                           }}
                           className="text-primary text-xs font-medium mt-1"

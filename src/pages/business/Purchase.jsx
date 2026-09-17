@@ -109,7 +109,7 @@ function Purchase() {
       const paymentMode = balanceDue > 0 ? "Credit" : paymentType;
       const meta = {
         partyName: partyName.trim() || null,
-        billingName: billingName.trim() || partyName.trim() || null,
+        billingName: partyName.trim() || null,
         partyPhone: partyPhone.trim() || null,
         paidAmount: finalPaidAmount,
         paymentMode,
@@ -178,13 +178,6 @@ function Purchase() {
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
             placeholder="e.g. Mahalaxmi Kirana"
-          />
-          <Input
-            label="Billing Name (Optional)"
-            name="billingName"
-            value={billingName}
-            onChange={(e) => setBillingName(e.target.value)}
-            placeholder="Defaults to Party Name"
           />
           <Input
             label="Phone Number"
