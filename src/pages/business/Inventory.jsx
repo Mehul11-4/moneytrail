@@ -25,13 +25,62 @@ const FULL_BAR_UNITS = 5;
 function Inventory() {
   const { products, loading, updateProduct, deleteProduct, addProduct } =
     useProducts();
+
+  const totalStockValue = useMemo(() => {
+    return products.reduce((sum, p) => {
+      if (p.is_static) return sum; // static items have no tracked stock quantity
+      return sum + p.stock_qty * p.price_per_qty;
+    }, 0);
+  }, [products]);
   const { productTypes } = useProductTypes();
   const [searchQuery, setSearchQuery] = useState("");
   const [showStaticForm, setShowStaticForm] = useState(false);
+  const [showNewProductForm, setShowNewProductForm] = useState(false);
+  const [newSection, setNewSection] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newUnitLabel, setNewUnitLabel] = useState("");
+  const [newQtyPerUnit, setNewQtyPerUnit] = useState("");
+  const [newRate, setNewRate] = useState("");
+  const [newMrp, setNewMrp] = useState("");
+  const [newProductError, setNewProductError] = useState("");
   const [staticSection, setStaticSection] = useState("");
   const [staticCost, setStaticCost] = useState("");
   const [staticMrp, setStaticMrp] = useState("");
   const [staticError, setStaticError] = useState("");
+
+  const handleAddNewProduct = async (e) => {
+    e.preventDefault();
+    setNewProductError("");
+    const qtyPerUnit = parseFloat(newQtyPerUnit);
+    const rate = parseFloat(newRate);
+    const mrp = parseFloat(newMrp);
+    if (!newSection) return setNewProductError("Select a product type.");
+    if (!newName.trim()) return setNewProductError("Enter product name.");
+    if (!newUnitLabel.trim()) return setNewProductError("Enter unit label.");
+    if (!qtyPerUnit || qtyPerUnit <= 0)
+      return setNewProductError("Enter valid qty per unit.");
+    if (!rate || rate <= 0)
+      return setNewProductError("Enter valid rate (cost per unit).");
+    if (!mrp || mrp <= 0) return setNewProductError("Enter valid MRP.");
+
+    await addProduct({
+      name: newName.trim(),
+      section: newSection,
+      unitLabel: newUnitLabel.trim(),
+      qtyPerUnit,
+      unitPurchasePrice: rate,
+      unitsPurchased: 0, // starts at 0 stock — restock separately via Purchase
+      mrpPerQty: mrp,
+    });
+
+    setNewSection("");
+    setNewName("");
+    setNewUnitLabel("");
+    setNewQtyPerUnit("");
+    setNewRate("");
+    setNewMrp("");
+    setShowNewProductForm(false);
+  };
 
   const handleAddStatic = async (e) => {
     e.preventDefault();
@@ -185,6 +234,16 @@ function Inventory() {
         Tap any product for details or to edit. Stock updates automatically from
         Jama-Kharch and Sale Voucher.
       </p>
+
+      <Card className="mb-4 border-inventory/40">
+        <p className="text-textSecondary text-sm mb-1">Total Stock Value</p>
+        <p className="text-2xl font-heading font-bold text-inventory">
+          ₹{totalStockValue.toFixed(2)}
+        </p>
+        <p className="text-[10px] text-textSecondary/70 mt-1">
+          At cost price, current stock only
+        </p>
+      </Card>
       <div className="relative mb-3">
         <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
         <input
@@ -196,13 +255,104 @@ function Inventory() {
         />
       </div>
 
-      <Button
-        variant="secondary"
-        onClick={() => setShowStaticForm(!showStaticForm)}
-        className="w-full flex items-center justify-center gap-2 mb-4"
-      >
-        <Coffee className="w-4 h-4" /> Add Static Item (Chai, Coffee, etc.)
-      </Button>
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant="accent"
+          onClick={() => setShowNewProductForm(!showNewProductForm)}
+          className="flex-1 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Add New Product
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setShowStaticForm(!showStaticForm)}
+          className="flex-1 flex items-center justify-center gap-2"
+        >
+          <Coffee className="w-4 h-4" /> Static Item
+        </Button>
+      </div>
+
+      {showNewProductForm && (
+        <Card className="mb-4">
+          <p className="text-sm font-medium mb-3">New Product</p>
+          <form onSubmit={handleAddNewProduct} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-textSecondary font-medium">
+                Product Type
+              </label>
+              <select
+                value={newSection}
+                onChange={(e) => setNewSection(e.target.value)}
+                className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+              >
+                <option value="">Select product type</option>
+                {productTypes.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Product Name"
+              name="newName"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Connect"
+            />
+            <Input
+              label="Unit Label"
+              name="newUnitLabel"
+              value={newUnitLabel}
+              onChange={(e) => setNewUnitLabel(e.target.value)}
+              placeholder="e.g. Pack"
+            />
+            <Input
+              label="Qty per Unit"
+              name="newQtyPerUnit"
+              type="number"
+              value={newQtyPerUnit}
+              onChange={(e) => setNewQtyPerUnit(e.target.value)}
+              placeholder="e.g. 20"
+            />
+            <Input
+              label="Rate (₹ cost per Unit)"
+              name="newRate"
+              type="number"
+              value={newRate}
+              onChange={(e) => setNewRate(e.target.value)}
+              placeholder="e.g. 140"
+            />
+            <Input
+              label="MRP (₹ per piece)"
+              name="newMrp"
+              type="number"
+              value={newMrp}
+              onChange={(e) => setNewMrp(e.target.value)}
+              placeholder="e.g. 20"
+            />
+            {newProductError && (
+              <p className="text-danger text-sm">{newProductError}</p>
+            )}
+            <div className="flex gap-2">
+              <Button type="submit" variant="accent" className="flex-1">
+                Save Product
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowNewProductForm(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+            <p className="text-[10px] text-textSecondary/70">
+              Starts with 0 stock — restock via Purchase.
+            </p>
+          </form>
+        </Card>
+      )}
 
       {showStaticForm && (
         <Card className="mb-4">

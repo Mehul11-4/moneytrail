@@ -205,8 +205,6 @@ function Purchase() {
           items={items}
           setItems={setItems}
           products={products}
-          allowNewProduct
-          productTypes={productTypes}
           unitMode
         />
       </Card>
