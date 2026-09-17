@@ -85,11 +85,11 @@ function BusinessDashboard() {
     const byDate = {};
     sales.forEach((s) => {
       byDate[s.date] = byDate[s.date] || { sale: 0, purchase: 0 };
-      byDate[s.date].sale += s.total;
+      byDate[s.date].sale += s.receivedAmount || 0; // cash actually received, matching Cash in Hand
     });
     purchases.forEach((p) => {
       byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
-      byDate[p.date].purchase += p.total;
+      byDate[p.date].purchase += p.receivedAmount || 0; // cash actually paid out
     });
     const sortedDates = Object.keys(byDate).sort();
     let running = 0;

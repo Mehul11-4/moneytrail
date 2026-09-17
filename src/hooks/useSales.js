@@ -7,6 +7,17 @@ export function useSales() {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [allPayments, setAllPayments] = useState([]);
+
+  const loadAllPayments = async () => {
+    const { data, error } = await supabase.from("udhaar_payments").select("*");
+    if (error) {
+      console.error("Supabase load all payments error:", error);
+    } else {
+      setAllPayments(data || []);
+    }
+  };
+
   const loadSales = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -25,6 +36,7 @@ export function useSales() {
 
   useEffect(() => {
     loadSales();
+    loadAllPayments();
   }, [loadSales]);
 
   const getNextInvoiceNo = async () => {
@@ -193,6 +205,7 @@ export function useSales() {
     if (logErr) console.error("Supabase log udhaar payment error:", logErr);
 
     await loadSales();
+    await loadAllPayments();
   };
 
   const getPaymentHistory = async (saleId) => {
@@ -207,6 +220,7 @@ export function useSales() {
     }
     return data;
   };
+
   return {
     sales,
     loading,
@@ -216,6 +230,7 @@ export function useSales() {
     updateSale,
     recordPayment,
     getPaymentHistory,
+    allPayments,
   };
 }
 
