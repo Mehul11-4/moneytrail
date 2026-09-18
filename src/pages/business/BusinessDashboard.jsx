@@ -13,6 +13,7 @@ import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
 import { usePurchases } from "../../hooks/usePurchases";
 import { useLoans } from "../../hooks/useLoans";
+import { useLedger } from "../../hooks/useLedger";
 import { formatDate } from "../../utils/formatDate";
 
 const JAMA_KHARCH_CATEGORIES = [
@@ -32,6 +33,7 @@ function BusinessDashboard() {
   const { sales } = useSales();
   const { purchases } = usePurchases();
   const { loans } = useLoans();
+  const { entries } = useLedger();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
@@ -45,11 +47,18 @@ function BusinessDashboard() {
         ),
     [sales],
   );
-  const toPay = useMemo(
-    () =>
-      loans.filter((l) => !l.is_repaid).reduce((sum, l) => sum + l.amount, 0),
-    [loans],
-  );
+  const toPay = useMemo(() => {
+    const loanTotal = loans
+      .filter((l) => !l.is_repaid)
+      .reduce((sum, l) => sum + l.amount, 0);
+    const creditPurchaseTotal = purchases
+      .filter((p) => p.paymentMode === "Credit")
+      .reduce(
+        (sum, p) => sum + Math.max(0, p.total - (p.receivedAmount || 0)),
+        0,
+      );
+    return loanTotal + creditPurchaseTotal;
+  }, [loans, purchases]);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const todaySalesList = useMemo(
@@ -70,27 +79,50 @@ function BusinessDashboard() {
     }, 0);
   }, [todaySalesList]);
 
-  // ---- Cash in Hand: money actually RECEIVED/PAID, not full sale/purchase
-  // totals — an unpaid Udhaar sale contributes ₹0 until the customer pays.
-  const totalReceivedFromSales = useMemo(
-    () => sales.reduce((s, sale) => s + (sale.receivedAmount || 0), 0),
-    [sales],
-  );
-  const totalPaidForPurchases = useMemo(
-    () => purchases.reduce((s, p) => s + (p.receivedAmount || 0), 0),
-    [purchases],
-  );
-  const cashInHand = totalReceivedFromSales - totalPaidForPurchases;
+  // ---- Cash in Hand ----
+  // Incoming: Capital, Borrowed, Loan Taken, Other Income (full ledger
+  // amounts — these are direct cash movements, no partial-payment concept)
+  // PLUS Sale (only money actually received, not the full sale value).
+  // Outgoing: Loan Interest, Rent, Electricity, Water Bill, Other Expenses
+  // (full ledger amounts) PLUS Purchase (only money actually paid out).
+  const cashIncoming = useMemo(() => {
+    const ledgerIn = entries
+      .filter((e) => e.type === "jama")
+      .reduce((s, e) => s + e.amount, 0);
+    const salesIn = sales.reduce(
+      (s, sale) => s + (sale.receivedAmount || 0),
+      0,
+    );
+    return ledgerIn + salesIn;
+  }, [entries, sales]);
+
+  const cashOutgoing = useMemo(() => {
+    const ledgerOut = entries
+      .filter((e) => e.type === "kharch")
+      .reduce((s, e) => s + e.amount, 0);
+    const purchasesOut = purchases.reduce(
+      (s, p) => s + (p.receivedAmount || 0),
+      0,
+    );
+    return ledgerOut + purchasesOut;
+  }, [entries, purchases]);
+
+  const cashInHand = cashIncoming - cashOutgoing;
 
   const balanceHistory = useMemo(() => {
     const byDate = {};
     sales.forEach((s) => {
       byDate[s.date] = byDate[s.date] || { sale: 0, purchase: 0 };
-      byDate[s.date].sale += s.receivedAmount || 0; // cash actually received, matching Cash in Hand
+      byDate[s.date].sale += s.receivedAmount || 0;
     });
     purchases.forEach((p) => {
       byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
-      byDate[p.date].purchase += p.receivedAmount || 0; // cash actually paid out
+      byDate[p.date].purchase += p.receivedAmount || 0;
+    });
+    entries.forEach((e) => {
+      byDate[e.date] = byDate[e.date] || { sale: 0, purchase: 0 };
+      if (e.type === "jama") byDate[e.date].sale += e.amount;
+      else byDate[e.date].purchase += e.amount;
     });
     const sortedDates = Object.keys(byDate).sort();
     let running = 0;
@@ -105,7 +137,7 @@ function BusinessDashboard() {
         };
       })
       .reverse();
-  }, [sales, purchases]);
+  }, [sales, purchases, entries]);
 
   const groupedHistoryByMonth = useMemo(() => {
     const groups = {};
@@ -176,7 +208,7 @@ function BusinessDashboard() {
           ₹{cashInHand.toFixed(2)}
         </p>
         <p className="text-[10px] text-textSecondary/70 mt-1">
-          From Sale and Purchase only
+          Capital, Loans, Sale, Purchase & all expenses
         </p>
       </Card>
 

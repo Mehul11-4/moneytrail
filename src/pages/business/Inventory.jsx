@@ -32,7 +32,7 @@ function Inventory() {
       return sum + p.stock_qty * p.price_per_qty;
     }, 0);
   }, [products]);
-  const { productTypes } = useProductTypes();
+  const { productTypes, addProductType } = useProductTypes();
   const [searchQuery, setSearchQuery] = useState("");
   const [showStaticForm, setShowStaticForm] = useState(false);
   const [showNewProductForm, setShowNewProductForm] = useState(false);
@@ -47,6 +47,9 @@ function Inventory() {
   const [staticCost, setStaticCost] = useState("");
   const [staticMrp, setStaticMrp] = useState("");
   const [staticError, setStaticError] = useState("");
+  const [addingStaticType, setAddingStaticType] = useState(false);
+  const [newStaticTypeName, setNewStaticTypeName] = useState("");
+  const [staticTypeError, setStaticTypeError] = useState("");
 
   const handleAddNewProduct = async (e) => {
     e.preventDefault();
@@ -362,18 +365,73 @@ function Inventory() {
               <label className="text-xs text-textSecondary font-medium">
                 Product Type
               </label>
-              <select
-                value={staticSection}
-                onChange={(e) => setStaticSection(e.target.value)}
-                className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">Select product type</option>
-                {productTypes.map((t) => (
-                  <option key={t.id} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+              {!addingStaticType ? (
+                <>
+                  <select
+                    value={staticSection}
+                    onChange={(e) => setStaticSection(e.target.value)}
+                    className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="">Select product type</option>
+                    {productTypes.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setAddingStaticType(true)}
+                    className="text-primary text-xs font-medium text-left mt-1"
+                  >
+                    + Add new product type
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={newStaticTypeName}
+                    onChange={(e) => setNewStaticTypeName(e.target.value)}
+                    placeholder="e.g. Snacks, Cold Drinks"
+                    className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
+                  />
+                  {staticTypeError && (
+                    <p className="text-danger text-xs">{staticTypeError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setStaticTypeError("");
+                        const { error } =
+                          await addProductType(newStaticTypeName);
+                        if (error) {
+                          setStaticTypeError(error.message);
+                        } else {
+                          setStaticSection(newStaticTypeName.trim());
+                          setNewStaticTypeName("");
+                          setAddingStaticType(false);
+                        }
+                      }}
+                      className="flex-1 bg-primary text-background rounded-control py-2 text-sm font-medium"
+                    >
+                      Save Type
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingStaticType(false);
+                        setNewStaticTypeName("");
+                        setStaticTypeError("");
+                      }}
+                      className="flex-1 bg-surface border border-white/10 rounded-control py-2 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <Input
               label="Cost Price (₹)"

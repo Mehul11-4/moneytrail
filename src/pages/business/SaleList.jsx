@@ -10,6 +10,13 @@ function SaleList() {
   const { restoreStockQty } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [productFilter, setProductFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+
+  const uniqueProducts = useMemo(() => {
+    const names = new Set(sales.map((s) => s.productName));
+    return Array.from(names).sort();
+  }, [sales]);
 
   // Group into transaction blocks (multi-item carts show as one block)
   const grouped = useMemo(() => {
@@ -35,15 +42,36 @@ function SaleList() {
     return order.map((k) => map[k]);
   }, [sales]);
 
+  // When a product/date filter is active, narrow each block down to ONLY
+  // the matching items — not just show/hide the whole block — so you can
+  // isolate one item's sale even inside a bigger multi-item transaction.
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return grouped;
-    const q = searchQuery.trim().toLowerCase();
-    return grouped.filter(
-      (g) =>
-        (g.customerName || "").toLowerCase().includes(q) ||
-        g.items.some((i) => i.productName.toLowerCase().includes(q)),
-    );
-  }, [grouped, searchQuery]);
+    let result = grouped;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (g) =>
+          (g.customerName || "").toLowerCase().includes(q) ||
+          g.items.some((i) => i.productName.toLowerCase().includes(q)),
+      );
+    }
+
+    if (dateFilter) {
+      result = result.filter((g) => g.date === dateFilter);
+    }
+
+    if (productFilter) {
+      result = result
+        .map((g) => ({
+          ...g,
+          items: g.items.filter((i) => i.productName === productFilter),
+        }))
+        .filter((g) => g.items.length > 0);
+    }
+
+    return result;
+  }, [grouped, searchQuery, dateFilter, productFilter]);
 
   const totalSale = useMemo(
     () => sales.reduce((sum, s) => sum + s.total, 0),
@@ -90,16 +118,49 @@ function SaleList() {
       </div>
 
       {grouped.length > 3 && (
-        <div className="relative mb-3">
-          <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by customer or item..."
-            className="w-full bg-surface border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-textPrimary text-sm focus:outline-none focus:border-primary"
-          />
-        </div>
+        <>
+          <div className="relative mb-3">
+            <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by customer or item..."
+              className="w-full bg-surface border border-white/10 rounded-control pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex gap-2 mb-3">
+            <select
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              className="flex-1 bg-surface border border-border rounded-control px-3 py-2 text-xs focus:outline-none focus:border-primary"
+            >
+              <option value="">All Products</option>
+              {uniqueProducts.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="flex-1 bg-surface border border-border rounded-control px-3 py-2 text-xs focus:outline-none focus:border-primary"
+            />
+            {(productFilter || dateFilter) && (
+              <button
+                onClick={() => {
+                  setProductFilter("");
+                  setDateFilter("");
+                }}
+                className="text-textSecondary text-xs px-2"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
@@ -108,72 +169,87 @@ function SaleList() {
       )}
 
       <div className="flex flex-col gap-3">
-        {filtered.map((block) => (
-          <Card key={block.key}>
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                {block.customerName && (
-                  <p className="text-sm font-medium">{block.customerName}</p>
-                )}
-                <p className="text-xs text-textSecondary">
-                  {formatDate(block.date)} · {block.time} · {block.paymentMode}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="font-heading font-bold text-success">
-                  ₹{block.total.toFixed(2)}
-                </p>
-                {confirmDelete === block.key ? (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleDeleteBlock(block)}
-                      className="text-danger text-xs font-medium"
-                    >
-                      Yes
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(null)}
-                      className="text-textSecondary text-xs"
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDelete(block.key)}
-                    className="text-textSecondary hover:text-danger"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-control border border-white/10 overflow-hidden compact-table">
-              <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-1.5 text-[9px] font-medium text-textSecondary">
-                <div className="col-span-5">Item</div>
-                <div className="col-span-2 text-right">Qty</div>
-                <div className="col-span-2 text-right">Rate</div>
-                <div className="col-span-3 text-right">Amount</div>
-              </div>
-              {block.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-12 px-2 py-1.5 text-xs border-b border-white/5 last:border-b-0"
-                >
-                  <div className="col-span-5 truncate">{item.productName}</div>
-                  <div className="col-span-2 text-right">{item.qtySold}</div>
-                  <div className="col-span-2 text-right rupee-amount">
-                    {item.mrpAtSale.toFixed(2)}
-                  </div>
-                  <div className="col-span-3 text-right font-medium rupee-amount">
-                    {item.total.toFixed(2)}
-                  </div>
+        {filtered.map((block) => {
+          const displayTotal = block.items.reduce((sum, i) => sum + i.total, 0);
+          const isPartialView =
+            productFilter &&
+            block.items.length <
+              (grouped.find((g) => g.key === block.key)?.items.length || 0);
+          return (
+            <Card key={block.key}>
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  {block.customerName && (
+                    <p className="text-sm font-medium">{block.customerName}</p>
+                  )}
+                  <p className="text-xs text-textSecondary">
+                    {formatDate(block.date)} · {block.time} ·{" "}
+                    {block.paymentMode}
+                  </p>
+                  {isPartialView && (
+                    <p className="text-[10px] text-textSecondary/70">
+                      Showing filtered item only
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </Card>
-        ))}
+                <div className="flex items-center gap-3">
+                  <p className="font-heading font-bold text-success">
+                    ₹{displayTotal.toFixed(2)}
+                  </p>
+                  {confirmDelete === block.key ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDeleteBlock(block)}
+                        className="text-danger text-xs font-medium"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="text-textSecondary text-xs"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(block.key)}
+                      className="text-textSecondary hover:text-danger"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-control border border-white/10 overflow-hidden compact-table">
+                <div className="grid grid-cols-12 bg-background/40 border-b border-white/10 px-2 py-1.5 text-[9px] font-medium text-textSecondary">
+                  <div className="col-span-5">Item</div>
+                  <div className="col-span-2 text-right">Qty</div>
+                  <div className="col-span-2 text-right">Rate</div>
+                  <div className="col-span-3 text-right">Amount</div>
+                </div>
+                {block.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="grid grid-cols-12 px-2 py-1.5 text-xs border-b border-white/5 last:border-b-0"
+                  >
+                    <div className="col-span-5 truncate">
+                      {item.productName}
+                    </div>
+                    <div className="col-span-2 text-right">{item.qtySold}</div>
+                    <div className="col-span-2 text-right rupee-amount">
+                      {item.mrpAtSale.toFixed(2)}
+                    </div>
+                    <div className="col-span-3 text-right font-medium rupee-amount">
+                      {item.total.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
