@@ -39,7 +39,10 @@ function BusinessDashboard() {
     () =>
       sales
         .filter((s) => s.paymentMode === "Udhaar")
-        .reduce((sum, s) => sum + s.total, 0),
+        .reduce(
+          (sum, s) => sum + Math.max(0, s.total - (s.receivedAmount || 0)),
+          0,
+        ),
     [sales],
   );
   const toPay = useMemo(
