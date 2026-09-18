@@ -19,6 +19,7 @@ html {
   --color-warning: #f59e0b;
   --color-inventory: #f59e0b;
   --color-parties: #a855f7;
+  --color-border: rgba(255, 255, 255, 0.1);
 }
 
 .theme-light {
@@ -33,6 +34,7 @@ html {
   --color-warning: #d97706;
   --color-inventory: #d97706;
   --color-parties: #9333ea;
+  --color-border: #e4e4e7;
 }
 
 body {

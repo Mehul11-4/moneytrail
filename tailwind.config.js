@@ -15,6 +15,7 @@ export default {
         warning: "var(--color-warning)",
         inventory: "var(--color-inventory)",
         parties: "var(--color-parties)",
+        border: "var(--color-border)",
       },
       fontFamily: {
         heading: ["Space Grotesk", "sans-serif"],

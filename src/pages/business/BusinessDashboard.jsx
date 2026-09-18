@@ -131,24 +131,28 @@ function BusinessDashboard() {
       icon: ShoppingCart,
       label: "Sale",
       color: "text-primary",
+      border: "border-primary/40 hover:border-primary/70",
     },
     {
       to: "/business/purchase",
       icon: ShoppingBag,
       label: "Purchase",
       color: "text-secondary",
+      border: "border-secondary/40 hover:border-secondary/70",
     },
     {
       to: "/business/udhaar-given",
       icon: Users,
       label: "Parties",
       color: "text-parties",
+      border: "border-parties/40 hover:border-parties/70",
     },
     {
       to: "/business/inventory",
       icon: Package,
       label: "Inventory",
       color: "text-inventory",
+      border: "border-inventory/40 hover:border-inventory/70",
     },
   ];
 
@@ -219,11 +223,11 @@ function BusinessDashboard() {
         Quick Access
       </p>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        {quickAccess.map(({ to, icon: Icon, label, color }) => (
+        {quickAccess.map(({ to, icon: Icon, label, color, border }) => (
           <button
             key={to}
             onClick={() => navigate(to)}
-            className="flex flex-col items-center justify-center gap-2 bg-surface border border-white/5 rounded-card py-6 shadow-sm hover:shadow-md hover:border-white/10 transition-shadow"
+            className={`flex flex-col items-center justify-center gap-2 bg-surface border-2 ${border} rounded-card py-6 shadow-sm hover:shadow-md transition-all`}
           >
             <Icon className={`w-6 h-6 ${color}`} />
             <span className="text-sm font-medium text-center px-1">
