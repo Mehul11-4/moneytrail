@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { useProducts } from "./useProducts";
 
 export function useLedger() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { addProduct, restockProduct, loadProducts } = useProducts();
 
   const loadEntries = useCallback(async () => {
     if (!user) return;
@@ -37,87 +35,12 @@ export function useLedger() {
       amount: entry.amount,
       date: entry.date,
       note: entry.note,
-      product_id: entry.productId || null,
-      units_purchased: entry.unitsPurchased || null,
     });
     if (error) {
       console.error("Supabase add ledger entry error:", error);
       throw error;
     }
     await loadEntries();
-  };
-
-  const addPurchaseGoods = async ({
-    productId,
-    isNewProduct,
-    productDetails,
-    unitsPurchased,
-    date,
-    note,
-  }) => {
-    let finalProductId = productId;
-    let totalAmount;
-    let productName;
-    let unitLabel;
-
-    if (isNewProduct) {
-      await addProduct({
-        name: productDetails.name,
-        section: productDetails.section,
-        unitLabel: productDetails.unitLabel,
-        qtyPerUnit: productDetails.qtyPerUnit,
-        unitPurchasePrice: productDetails.unitPurchasePrice,
-        unitsPurchased: productDetails.unitsPurchased,
-        mrpPerQty: productDetails.mrpPerQty,
-      });
-
-      const { data: newlyCreated, error: fetchErr } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (fetchErr) {
-        console.error("Supabase fetch new product error:", fetchErr);
-        throw fetchErr;
-      }
-
-      finalProductId = newlyCreated.id;
-      totalAmount =
-        productDetails.unitPurchasePrice * productDetails.unitsPurchased;
-      productName = productDetails.name;
-      unitLabel = productDetails.unitLabel;
-    } else {
-      const { data: existing, error: fetchErr } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", productId)
-        .single();
-
-      if (fetchErr) {
-        console.error("Supabase fetch existing product error:", fetchErr);
-        throw fetchErr;
-      }
-
-      await restockProduct(productId, unitsPurchased);
-      totalAmount = existing.unit_purchase_price * unitsPurchased;
-      productName = existing.name;
-      unitLabel = existing.unit_label;
-    }
-
-    const autoDescription = `${productName} — ${unitsPurchased} ${unitLabel}${unitsPurchased > 1 ? "s" : ""}`;
-    const fullNote = note ? `${autoDescription} (${note})` : autoDescription;
-
-    await addLedgerEntry({
-      type: "kharch",
-      subtype: "Purchase Goods",
-      amount: totalAmount,
-      date,
-      note: fullNote,
-      productId: finalProductId,
-      unitsPurchased,
-    });
   };
 
   const deleteLedgerEntry = async (id) => {
@@ -132,40 +55,6 @@ export function useLedger() {
     }
   };
 
-  // Delete a Purchase Goods entry AND reverse the stock it added.
-  // Only safe/precise for entries that have units_purchased stored (created
-  // after our stock-tracking fix). Older entries fall back to an estimate.
-  const deletePurchaseGoods = async (entry) => {
-    const productId = entry.product_id || entry.productId;
-    if (productId) {
-      const { data: product } = await supabase
-        .from("products")
-        .select("qty_per_unit, unit_purchase_price")
-        .eq("id", productId)
-        .single();
-
-      if (product) {
-        let unitsToReverse = entry.units_purchased;
-        if (!unitsToReverse && product.unit_purchase_price) {
-          unitsToReverse = entry.amount / product.unit_purchase_price;
-        }
-
-        if (unitsToReverse) {
-          const qtyToRemove = unitsToReverse * product.qty_per_unit;
-          const { error: rpcErr } = await supabase.rpc("adjust_stock", {
-            product_id: productId,
-            delta: -qtyToRemove,
-          });
-          if (rpcErr)
-            console.error("Supabase reverse stock on delete error:", rpcErr);
-          await loadProducts();
-        }
-      }
-    }
-
-    await deleteLedgerEntry(entry.id);
-  };
-
   const updateLedgerEntry = async (id, updates) => {
     const { error } = await supabase
       .from("ledger_entries")
@@ -178,61 +67,12 @@ export function useLedger() {
     await loadEntries();
   };
 
-  // Special case: editing a Purchase Goods entry — recalculates the amount
-  // and adjusts the linked product's stock by the DIFFERENCE in units
-  // (not a full reset), since stock may have already been partially sold
-  // since the original purchase.
-  const updatePurchaseGoods = async (
-    entryId,
-    { productId, newUnitsPurchased, date, note },
-  ) => {
-    const { data: product, error: fetchErr } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", productId)
-      .single();
-
-    if (fetchErr) {
-      console.error("Supabase fetch product for update error:", fetchErr);
-      throw fetchErr;
-    }
-
-    const qtyDifference = newUnitsPurchased - null; // placeholder, replaced below
-    const newAmount = product.unit_purchase_price * newUnitsPurchased;
-
-    const { error: rpcErr } = await supabase.rpc("adjust_stock", {
-      product_id: productId,
-      delta: null, // replaced below
-    });
-    if (rpcErr) {
-      console.error("Supabase adjust stock (atomic) error:", rpcErr);
-      throw rpcErr;
-    }
-
-    const productName = product.name;
-    const unitLabel = product.unit_label;
-    const autoDescription = `${productName} — ${newUnitsPurchased} ${unitLabel}${newUnitsPurchased > 1 ? "s" : ""}`;
-    const fullNote = note ? `${autoDescription} (${note})` : autoDescription;
-
-    await updateLedgerEntry(entryId, {
-      amount: newAmount,
-      date,
-      note: fullNote,
-      units_purchased: newUnitsPurchased,
-    });
-
-    await loadProducts();
-  };
-
   return {
     entries,
     loading,
     addLedgerEntry,
-    addPurchaseGoods,
     deleteLedgerEntry,
-    deletePurchaseGoods,
     updateLedgerEntry,
-    updatePurchaseGoods,
   };
 }
 
@@ -244,7 +84,6 @@ function mapEntriesFromDb(rows) {
     amount: e.amount,
     date: e.date,
     note: e.note,
-    productId: e.product_id,
     createdAt: e.created_at,
   }));
 }
