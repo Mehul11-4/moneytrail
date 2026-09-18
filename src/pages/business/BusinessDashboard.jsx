@@ -67,19 +67,17 @@ function BusinessDashboard() {
     }, 0);
   }, [todaySalesList]);
 
-  // ---- Total Balance (moved from Jama-Kharch) ----
-  // Cash in Hand: purely Sale money in minus Purchase money out —
-  // deliberately excludes Capital, Loans, Rent, Electricity, and other
-  // Jama-Kharch entries, which are tracked separately via the "+" menu.
-  const totalSalesAllTime = useMemo(
-    () => sales.reduce((s, sale) => s + sale.total, 0),
+  // ---- Cash in Hand: money actually RECEIVED/PAID, not full sale/purchase
+  // totals — an unpaid Udhaar sale contributes ₹0 until the customer pays.
+  const totalReceivedFromSales = useMemo(
+    () => sales.reduce((s, sale) => s + (sale.receivedAmount || 0), 0),
     [sales],
   );
-  const totalPurchasesAllTime = useMemo(
-    () => purchases.reduce((s, p) => s + p.total, 0),
+  const totalPaidForPurchases = useMemo(
+    () => purchases.reduce((s, p) => s + (p.receivedAmount || 0), 0),
     [purchases],
   );
-  const cashInHand = totalSalesAllTime - totalPurchasesAllTime;
+  const cashInHand = totalReceivedFromSales - totalPaidForPurchases;
 
   const balanceHistory = useMemo(() => {
     const byDate = {};
