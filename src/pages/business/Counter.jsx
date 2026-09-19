@@ -7,12 +7,15 @@ import BilledItemsTable from "../../components/BilledItemsTable";
 import { useProducts } from "../../hooks/useProducts";
 import { useSales } from "../../hooks/useSales";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { useParties } from "../../hooks/useParties";
+import { Users, Search as SearchIcon, X as XIcon } from "lucide-react";
 
 const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 function Counter() {
   const { products, deductStock } = useProducts();
   const { sales, recordSale, recordMultiSale } = useSales();
+  const { parties, addParty } = useParties();
 
   const todayStr = new Date().toISOString().split("T")[0];
   const todayTotal = useMemo(
@@ -30,16 +33,18 @@ function Counter() {
     "cbn_cart_saleDate",
     todayStr,
   );
-  const [customerName, setCustomerName] = usePersistedState(
-    "cbn_cart_customerName",
+  const [selectedPartyId, setSelectedPartyId] = usePersistedState(
+    "cbn_cart_partyId",
     "",
   );
+  const [showPartyPicker, setShowPartyPicker] = useState(false);
+  const [partySearch, setPartySearch] = useState("");
+  const [showNewPartyForm, setShowNewPartyForm] = useState(false);
+  const [newPartyName, setNewPartyName] = useState("");
+  const [newPartyPhone, setNewPartyPhone] = useState("");
+  const [newPartyError, setNewPartyError] = useState("");
   const [billingName, setBillingName] = usePersistedState(
     "cbn_cart_billingName",
-    "",
-  );
-  const [customerPhone, setCustomerPhone] = usePersistedState(
-    "cbn_cart_customerPhone",
     "",
   );
   const [isReceived, setIsReceived] = usePersistedState(
@@ -92,14 +97,47 @@ function Counter() {
   const resetForm = () => {
     setItems([]);
     setSaleDate(todayStr);
-    setCustomerName("");
+    setSelectedPartyId("");
     setBillingName("");
-    setCustomerPhone("");
     setIsReceived(true);
     setReceivedAmount("");
     setPaymentType("Cash");
     setDescription("");
     setError("");
+  };
+
+  const selectedParty = useMemo(
+    () => parties.find((p) => p.id === selectedPartyId),
+    [parties, selectedPartyId],
+  );
+
+  const filteredParties = useMemo(() => {
+    if (!partySearch.trim()) return parties;
+    const q = partySearch.trim().toLowerCase();
+    return parties.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.phone.includes(q),
+    );
+  }, [parties, partySearch]);
+
+  const handleCreateParty = async () => {
+    setNewPartyError("");
+    if (!newPartyName.trim()) return setNewPartyError("Enter a name.");
+    if (!/^\d{10}$/.test(newPartyPhone.trim()))
+      return setNewPartyError("Enter a valid 10-digit phone number.");
+    try {
+      const created = await addParty(newPartyName, newPartyPhone);
+      setSelectedPartyId(created.id);
+      setNewPartyName("");
+      setNewPartyPhone("");
+      setShowNewPartyForm(false);
+      setShowPartyPicker(false);
+    } catch (err) {
+      setNewPartyError(
+        err.message?.includes("duplicate")
+          ? "This phone number is already registered."
+          : "Failed to add party.",
+      );
+    }
   };
 
   const handleCompleteSale = async () => {
@@ -121,20 +159,19 @@ function Counter() {
       }
     }
 
-    if (balanceDue > 0 && !customerName.trim())
-      return setError("Party Name is required when there is a balance due.");
-    if (balanceDue > 0 && !customerPhone.trim())
-      return setError("Phone number is required when there is a balance due.");
+    if (balanceDue > 0 && !selectedParty)
+      return setError("Select a Party when there is a balance due.");
 
     setIsSubmitting(true);
     try {
       const paymentMode = balanceDue > 0 ? "Udhaar" : paymentType;
       const meta = {
         paymentMode,
-        customerName: customerName.trim() || null,
-        billingName: customerName.trim() || null,
-        customerPhone: customerPhone.trim() || null,
+        customerName: selectedParty?.name || null,
+        billingName: selectedParty?.name || null,
+        customerPhone: selectedParty?.phone || null,
         receivedAmount: finalReceivedAmount,
+        partyId: selectedParty?.id || null,
         saleDate,
       };
 
@@ -218,25 +255,126 @@ function Counter() {
 
       <Card className="mb-4">
         <p className="text-sm font-medium mb-3">Party Details</p>
-        <div className="flex flex-col gap-3">
-          <Input
-            label="Customer Name (Optional unless balance due)"
-            name="customerName"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="e.g. Dipak Ji Jain"
-          />
-          <Input
-            label="Phone Number"
-            name="customerPhone"
-            type="tel"
-            value={customerPhone}
-            onChange={(e) =>
-              setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-            }
-            placeholder="e.g. 9876543210"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowPartyPicker(true)}
+          className="w-full bg-surface border border-border rounded-control px-3 py-2.5 text-left text-sm flex items-center gap-2"
+        >
+          <Users className="w-4 h-4 text-parties" />
+          {selectedParty ? (
+            <span>
+              {selectedParty.name} · {selectedParty.phone}
+            </span>
+          ) : (
+            <span className="text-textSecondary">
+              Select Party (optional unless balance due)
+            </span>
+          )}
+        </button>
+
+        {showPartyPicker && (
+          <div
+            className="fixed inset-0 bg-black/70 z-[90] flex items-end"
+            onClick={() => {
+              setShowPartyPicker(false);
+              setShowNewPartyForm(false);
+            }}
+          >
+            <div
+              className="w-full bg-surface border-t border-white/10 rounded-t-2xl p-4 max-h-[75vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <p className="font-heading font-bold">
+                  {showNewPartyForm ? "New Party" : "Select Party"}
+                </p>
+                <button
+                  onClick={() => {
+                    setShowPartyPicker(false);
+                    setShowNewPartyForm(false);
+                  }}
+                  className="text-textSecondary"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              {showNewPartyForm ? (
+                <div className="flex flex-col gap-3">
+                  <input
+                    value={newPartyName}
+                    onChange={(e) => setNewPartyName(e.target.value)}
+                    placeholder="Customer Name"
+                    className="bg-background border border-border rounded-control px-3 py-2.5 text-sm"
+                  />
+                  <input
+                    type="tel"
+                    value={newPartyPhone}
+                    onChange={(e) =>
+                      setNewPartyPhone(
+                        e.target.value.replace(/\D/g, "").slice(0, 10),
+                      )
+                    }
+                    placeholder="Phone Number"
+                    className="bg-background border border-border rounded-control px-3 py-2.5 text-sm"
+                  />
+                  {newPartyError && (
+                    <p className="text-danger text-xs">{newPartyError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleCreateParty}
+                    className="bg-parties text-white rounded-control py-2.5 text-sm font-medium"
+                  >
+                    Save Party
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPartyForm(true)}
+                    className="w-full flex items-center gap-2 mb-3 px-3 py-2.5 rounded-control border border-dashed border-parties/40 text-parties text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" /> New Party
+                  </button>
+                  <div className="relative mb-3">
+                    <SearchIcon className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={partySearch}
+                      onChange={(e) => setPartySearch(e.target.value)}
+                      placeholder="Search parties..."
+                      className="w-full bg-background border border-border rounded-control pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div className="overflow-y-auto flex-1">
+                    {filteredParties.length === 0 && (
+                      <p className="text-textSecondary text-sm p-2">
+                        No parties found.
+                      </p>
+                    )}
+                    {filteredParties.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPartyId(p.id);
+                          setShowPartyPicker(false);
+                          setPartySearch("");
+                        }}
+                        className="w-full text-left px-3 py-3 text-sm hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                      >
+                        {p.name} · {p.phone}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="mb-4">

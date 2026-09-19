@@ -65,6 +65,7 @@ export function useSales() {
       billing_name: sale.billingName || sale.customerName,
       customer_phone: sale.customerPhone,
       received_amount: sale.receivedAmount,
+      party_id: sale.partyId || null,
       date: finalDate,
       time: now.toLocaleTimeString("en-IN", {
         hour: "2-digit",
@@ -107,6 +108,7 @@ export function useSales() {
       billing_name: meta.billingName || meta.customerName,
       customer_phone: meta.customerPhone,
       received_amount: i === 0 ? meta.receivedAmount : 0,
+      party_id: meta.partyId || null,
       date: finalDate,
       time,
       transaction_id: transactionId,
