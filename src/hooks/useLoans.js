@@ -31,6 +31,7 @@ export function useLoans() {
     const { error } = await supabase.from("loans").insert({
       user_id: user.id,
       lender_name: loan.lenderName.trim(),
+      lender_id: loan.lenderId || null,
       amount: loan.amount,
       interest_rate: loan.interestRate || null,
       date: loan.date,
@@ -42,7 +43,6 @@ export function useLoans() {
     }
     await loadLoans();
   };
-
   const updateLoan = async (id, updates) => {
     const { error } = await supabase.from("loans").update(updates).eq("id", id);
     if (error) {
