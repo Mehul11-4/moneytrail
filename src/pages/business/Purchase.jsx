@@ -134,8 +134,8 @@ function Purchase() {
     setError("");
     if (validItems.length === 0)
       return setError("Add at least one item with quantity and rate.");
-    if (balanceDue > 0 && !partyName.trim())
-      return setError("Party Name is required when there is a balance due.");
+    if (balanceDue > 0 && !selectedParty)
+      return setError("Select a Party when there is a balance due.");
 
     setIsSubmitting(true);
     try {
