@@ -121,8 +121,7 @@ function Purchase() {
   );
 
   const resetForm = () => {
-    setCart([]);
-    resetItemForm();
+    setItems([]);
     setSelectedPartyId("");
     setPaymentMode("Cash");
     setPurchaseDate(todayStr);
