@@ -252,6 +252,7 @@ export function useSales() {
     deleteSale,
     updateSale,
     recordPayment,
+    recordPartyPayment,
     getPaymentHistory,
     allPayments,
   };
