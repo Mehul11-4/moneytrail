@@ -4,20 +4,16 @@ import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
 import { useSales } from "../../hooks/useSales";
+import { usePurchases } from "../../hooks/usePurchases";
 import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
 
 function UdhaarGiven() {
+  const { sales, loading, recordPartyPayment, getPaymentHistory } = useSales();
+  const { purchases } = usePurchases();
   const {
-    sales = [],
-    loading = false,
-    recordPayment,
-    getPaymentHistory,
-  } = useSales();
-
-  const {
-    parties = [],
-    loading: partiesLoading = false,
+    parties,
+    loading: partiesLoading,
     addParty,
     updateParty,
     deleteParty,
@@ -25,236 +21,116 @@ function UdhaarGiven() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingParty, setViewingParty] = useState(null);
-
-  const [payingId, setPayingId] = useState(null);
-  const [payAmount, setPayAmount] = useState("");
-  const [payDate, setPayDate] = useState(getTodayLocalDate());
-  const [payError, setPayError] = useState("");
-
-  const [paymentHistories, setPaymentHistories] = useState({});
-
   const [showAddParty, setShowAddParty] = useState(false);
   const [newPartyName, setNewPartyName] = useState("");
   const [newPartyPhone, setNewPartyPhone] = useState("");
   const [addPartyError, setAddPartyError] = useState("");
-
   const [editingParty, setEditingParty] = useState(false);
   const [editPartyName, setEditPartyName] = useState("");
   const [editPartyPhone, setEditPartyPhone] = useState("");
   const [editPartyError, setEditPartyError] = useState("");
-
   const [confirmDeleteParty, setConfirmDeleteParty] = useState(false);
+  const [payingParty, setPayingParty] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [payError, setPayError] = useState("");
+  const [paymentHistories, setPaymentHistories] = useState({});
 
-  /*
-   * Get today's date using LOCAL time instead of UTC.
-   *
-   * Using:
-   * new Date().toISOString().split("T")[0]
-   *
-   * can produce the previous date around midnight in India
-   * because toISOString() converts the date to UTC.
-   */
-  function getTodayLocalDate() {
-    const now = new Date();
-
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  /*
-   * Group every permanent party with its Udhaar sales
-   * and calculate the current outstanding balance.
-   */
   const grouped = useMemo(() => {
-    if (!Array.isArray(parties)) return [];
-
-    const safeSales = Array.isArray(sales) ? sales : [];
-
     return parties
       .map((party) => {
-        const partySales = safeSales.filter(
-          (sale) =>
-            sale?.partyId === party?.id && sale?.paymentMode === "Udhaar",
+        const partySales = sales.filter(
+          (s) => s.partyId === party.id && s.paymentMode === "Udhaar",
         );
-
-        const totalOwed = partySales.reduce((sum, sale) => {
-          const total = Number(sale?.total) || 0;
-          const received = Number(sale?.receivedAmount) || 0;
-
-          return sum + Math.max(0, total - received);
-        }, 0);
-
+        const partyPurchases = purchases.filter(
+          (p) => p.partyId === party.id && p.paymentMode === "Credit",
+        );
+        const toReceive = partySales.reduce(
+          (sum, s) => sum + Math.max(0, s.total - (s.receivedAmount || 0)),
+          0,
+        );
+        const toPay = partyPurchases.reduce(
+          (sum, p) => sum + Math.max(0, p.total - (p.receivedAmount || 0)),
+          0,
+        );
         return {
           ...party,
           sales: partySales,
-          totalOwed,
+          purchases: partyPurchases,
+          toReceive,
+          toPay,
         };
       })
-      .sort((a, b) => b.totalOwed - a.totalOwed);
-  }, [parties, sales]);
+      .filter((g) => g.toReceive > 0 || g.toPay > 0 || true) // keep all parties visible, even zero-balance
+      .sort((a, b) => b.toReceive + b.toPay - (a.toReceive + a.toPay));
+  }, [parties, sales, purchases]);
 
-  /*
-   * Search parties by name or phone.
-   */
   const filteredGroups = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    if (!query) return grouped;
-
-    return grouped.filter((group) => {
-      const name = String(group?.name || "").toLowerCase();
-      const phone = String(group?.phone || "");
-
-      return name.includes(query) || phone.includes(query);
-    });
+    if (!searchQuery.trim()) return grouped;
+    const q = searchQuery.trim().toLowerCase();
+    return grouped.filter(
+      (g) => g.name.toLowerCase().includes(q) || g.phone.includes(q),
+    );
   }, [grouped, searchQuery]);
 
-  /*
-   * Total outstanding amount across all parties.
-   */
-  const totalAllOwed = useMemo(() => {
-    return grouped.reduce(
-      (sum, group) => sum + (Number(group?.totalOwed) || 0),
-      0,
-    );
-  }, [grouped]);
+  const totalToReceive = useMemo(
+    () => grouped.reduce((s, g) => s + g.toReceive, 0),
+    [grouped],
+  );
+  const totalToPay = useMemo(
+    () => grouped.reduce((s, g) => s + g.toPay, 0),
+    [grouped],
+  );
 
-  /*
-   * Always get the latest party data from grouped.
-   *
-   * This is important because the selected party can change
-   * after a payment is recorded.
-   */
-  const viewingPartyLive = useMemo(() => {
-    if (!viewingParty?.id) return null;
+  const viewingPartyLive = viewingParty
+    ? grouped.find((g) => g.id === viewingParty.id) || null
+    : null;
 
-    return grouped.find((group) => group.id === viewingParty.id) || null;
-  }, [viewingParty, grouped]);
-
-  /*
-   * Add a new party.
-   */
   const handleAddParty = async (e) => {
     e.preventDefault();
-
     setAddPartyError("");
-
-    const name = newPartyName.trim();
-    const phone = newPartyPhone.trim();
-
-    if (!name) {
-      setAddPartyError("Enter a name.");
-      return;
-    }
-
-    if (!/^\d{10}$/.test(phone)) {
-      setAddPartyError("Enter a valid 10-digit phone number.");
-      return;
-    }
-
+    if (!newPartyName.trim()) return setAddPartyError("Enter a name.");
+    if (!/^\d{10}$/.test(newPartyPhone.trim()))
+      return setAddPartyError("Enter a valid 10-digit phone number.");
     try {
-      await addParty(name, phone);
-
+      await addParty(newPartyName, newPartyPhone);
       setNewPartyName("");
       setNewPartyPhone("");
       setShowAddParty(false);
-      setAddPartyError("");
     } catch (err) {
-      console.error("Failed to add party:", err);
-
-      const message = String(err?.message || "").toLowerCase();
-
       setAddPartyError(
-        message.includes("duplicate") || message.includes("unique")
+        err.message?.includes("duplicate")
           ? "This phone number is already registered to another party."
-          : err?.message || "Failed to add party.",
+          : "Failed to add party.",
       );
     }
   };
 
-  /*
-   * Record a payment against a specific Udhaar sale.
-   */
-  const handleRecordPayment = async (sale) => {
+  const handleRecordPartyPayment = async () => {
     setPayError("");
-
-    if (!sale?.id) {
-      setPayError("Invalid sale.");
-      return;
-    }
-
-    const amount = Number(payAmount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setPayError("Enter a valid amount.");
-      return;
-    }
-
-    const saleTotal = Number(sale.total) || 0;
-    const receivedAmount = Number(sale.receivedAmount) || 0;
-
-    const balanceDue = Math.max(0, saleTotal - receivedAmount);
-
-    if (amount > balanceDue) {
-      setPayError(`Cannot exceed balance due of ₹${balanceDue.toFixed(2)}.`);
-      return;
-    }
-
-    if (!payDate) {
-      setPayError("Select a payment date.");
-      return;
-    }
-
+    const amount = parseFloat(payAmount);
+    if (!amount || amount <= 0) return setPayError("Enter a valid amount.");
+    if (amount > viewingPartyLive.toReceive)
+      return setPayError(
+        `Cannot exceed total owed of ₹${viewingPartyLive.toReceive.toFixed(2)}.`,
+      );
     try {
-      await recordPayment(sale.id, amount, payDate);
-
-      setPayingId(null);
+      await recordPartyPayment(viewingPartyLive.id, amount, payDate);
+      setPayingParty(false);
       setPayAmount("");
-      setPayError("");
-
-      /*
-       * Reload payment history after successful payment.
-       */
-      await loadHistoryFor(sale.id);
     } catch (err) {
-      console.error("Failed to record payment:", err);
-
-      setPayError(err?.message || "Failed to record payment.");
+      setPayError(err.message || "Failed to record payment.");
     }
   };
 
-  /*
-   * Load payment history for a sale.
-   */
   const loadHistoryFor = async (saleId) => {
-    if (!saleId) return;
-
-    try {
-      const history = await getPaymentHistory(saleId);
-
-      setPaymentHistories((prev) => ({
-        ...prev,
-        [saleId]: Array.isArray(history) ? history : [],
-      }));
-    } catch (err) {
-      console.error("Failed to load payment history:", err);
-
-      setPaymentHistories((prev) => ({
-        ...prev,
-        [saleId]: [],
-      }));
-    }
+    const history = await getPaymentHistory(saleId);
+    setPaymentHistories((prev) => ({ ...prev, [saleId]: history }));
   };
 
-  /*
-   * Show/hide payment history.
-   */
-  const toggleHistory = async (saleId) => {
-    if (!saleId) return;
-
+  const toggleHistory = (saleId) => {
     if (paymentHistories[saleId]) {
       setPaymentHistories((prev) => {
         const next = { ...prev };
@@ -262,161 +138,53 @@ function UdhaarGiven() {
         return next;
       });
     } else {
-      await loadHistoryFor(saleId);
-    }
-  };
-
-  /*
-   * Open a party.
-   */
-  const handleOpenParty = (party) => {
-    setViewingParty(party);
-
-    setEditingParty(false);
-    setConfirmDeleteParty(false);
-
-    setPayingId(null);
-    setPayAmount("");
-    setPayError("");
-    setEditPartyError("");
-  };
-
-  /*
-   * Close party modal.
-   */
-  const handleCloseParty = () => {
-    setViewingParty(null);
-
-    setEditingParty(false);
-    setConfirmDeleteParty(false);
-
-    setPayingId(null);
-    setPayAmount("");
-    setPayError("");
-    setEditPartyError("");
-  };
-
-  /*
-   * Start editing the current party.
-   */
-  const handleStartEditing = () => {
-    if (!viewingPartyLive) return;
-
-    setEditingParty(true);
-    setEditPartyName(String(viewingPartyLive.name || ""));
-    setEditPartyPhone(String(viewingPartyLive.phone || ""));
-    setEditPartyError("");
-    setConfirmDeleteParty(false);
-  };
-
-  /*
-   * Update party details.
-   */
-  const handleUpdateParty = async () => {
-    setEditPartyError("");
-
-    const name = editPartyName.trim();
-    const phone = editPartyPhone.trim();
-
-    if (!name) {
-      setEditPartyError("Enter a name.");
-      return;
-    }
-
-    if (!/^\d{10}$/.test(phone)) {
-      setEditPartyError("Enter a valid 10-digit phone number.");
-      return;
-    }
-
-    if (!viewingPartyLive?.id) {
-      setEditPartyError("Invalid party.");
-      return;
-    }
-
-    try {
-      await updateParty(viewingPartyLive.id, name, phone);
-
-      setEditingParty(false);
-      setEditPartyError("");
-    } catch (err) {
-      console.error("Failed to update party:", err);
-
-      const message = String(err?.message || "").toLowerCase();
-
-      setEditPartyError(
-        message.includes("duplicate") || message.includes("unique")
-          ? "This phone number is already used by another party."
-          : err?.message || "Failed to update.",
-      );
-    }
-  };
-
-  /*
-   * Delete the current party.
-   */
-  const handleDeleteParty = async () => {
-    if (!viewingPartyLive?.id) return;
-
-    try {
-      await deleteParty(viewingPartyLive.id);
-
-      handleCloseParty();
-    } catch (err) {
-      console.error("Failed to delete party:", err);
-
-      setEditPartyError(err?.message || "Failed to delete party.");
-
-      setConfirmDeleteParty(false);
+      loadHistoryFor(saleId);
     }
   };
 
   return (
     <div className="min-h-screen bg-background text-textPrimary font-body p-4 pb-24">
-      {/* PAGE HEADER */}
       <div className="flex items-center gap-3 mt-6 mb-1">
         <Users className="w-7 h-7 text-parties" />
-
         <h1 className="text-2xl font-heading font-bold">Parties</h1>
       </div>
+      <p className="text-xs text-textSecondary mb-4">
+        Customers &amp; suppliers on Udhaar/Credit
+      </p>
 
-      <p className="text-xs text-textSecondary mb-4">Your customer accounts</p>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Card className="border-success/30 bg-success/5">
+          <p className="text-textSecondary text-xs mb-1">Total To Receive</p>
+          <p className="text-xl font-heading font-bold text-success">
+            ₹{totalToReceive.toFixed(2)}
+          </p>
+        </Card>
+        <Card className="border-danger/30 bg-danger/5">
+          <p className="text-textSecondary text-xs mb-1">Total To Pay</p>
+          <p className="text-xl font-heading font-bold text-danger">
+            ₹{totalToPay.toFixed(2)}
+          </p>
+        </Card>
+      </div>
 
-      {/* TOTAL OWED */}
-      <Card className="mb-4 border-parties/40">
-        <p className="text-textSecondary text-sm mb-1">
-          Total Owed (All Customers)
-        </p>
-
-        <p className="text-2xl font-heading font-bold text-parties">
-          ₹{totalAllOwed.toFixed(2)}
-        </p>
-      </Card>
-
-      {/* ADD PARTY BUTTON */}
       <Button
         variant="accent"
-        onClick={() => {
-          setShowAddParty((prev) => !prev);
-          setAddPartyError("");
-        }}
+        onClick={() => setShowAddParty(!showAddParty)}
         className="w-full flex items-center justify-center gap-2 mb-4"
       >
-        <Plus className="w-4 h-4" />
-        Add New Party
+        <Plus className="w-4 h-4" /> Add New Party
       </Button>
 
-      {/* ADD PARTY FORM */}
       {showAddParty && (
         <Card className="mb-4">
           <form onSubmit={handleAddParty} className="flex flex-col gap-3">
             <Input
-              label="Customer Name"
+              label="Name"
               name="newPartyName"
               value={newPartyName}
               onChange={(e) => setNewPartyName(e.target.value)}
               placeholder="e.g. Ramesh Kumar"
             />
-
             <Input
               label="Phone Number"
               name="newPartyPhone"
@@ -427,23 +195,17 @@ function UdhaarGiven() {
               }
               placeholder="e.g. 9876543210"
             />
-
             {addPartyError && (
               <p className="text-danger text-sm">{addPartyError}</p>
             )}
-
             <div className="flex gap-2">
               <Button type="submit" variant="accent" className="flex-1">
                 Save Party
               </Button>
-
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => {
-                  setShowAddParty(false);
-                  setAddPartyError("");
-                }}
+                onClick={() => setShowAddParty(false)}
                 className="flex-1"
               >
                 Cancel
@@ -453,11 +215,9 @@ function UdhaarGiven() {
         </Card>
       )}
 
-      {/* SEARCH */}
       {grouped.length > 3 && (
         <div className="relative mb-3">
           <Search className="w-4 h-4 text-textSecondary absolute left-3 top-1/2 -translate-y-1/2" />
-
           <input
             type="text"
             value={searchQuery}
@@ -468,80 +228,68 @@ function UdhaarGiven() {
         </div>
       )}
 
-      {/* LOADING */}
       {(loading || partiesLoading) && (
         <p className="text-textSecondary text-sm">Loading...</p>
       )}
-
-      {/* EMPTY STATE */}
       {!loading && !partiesLoading && filteredGroups.length === 0 && (
-        <p className="text-textSecondary text-sm">
-          {searchQuery.trim()
-            ? "No parties found."
-            : "No parties yet. Add one above, or it'll be created automatically on your first Udhaar sale."}
-        </p>
+        <p className="text-textSecondary text-sm">No parties yet.</p>
       )}
 
-      {/* PARTY LIST */}
       <div className="flex flex-col gap-2">
         {filteredGroups.map((group) => (
           <button
             key={group.id}
-            type="button"
-            onClick={() => handleOpenParty(group)}
-            className="text-left w-full"
+            onClick={() => setViewingParty(group)}
+            className="text-left"
           >
             <Card>
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{group.name}</p>
-
-                  <p className="text-xs text-textSecondary flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    {group.phone || "No phone"}
-                  </p>
-                </div>
-
-                <p
-                  className={`font-heading font-bold ${
-                    group.totalOwed > 0 ? "text-parties" : "text-success"
-                  }`}
-                >
-                  ₹{Number(group.totalOwed || 0).toFixed(2)}
-                </p>
+              <div className="flex justify-between items-center mb-1">
+                <p className="font-medium">{group.name}</p>
               </div>
-
-              <p className="text-xs text-textSecondary mt-1">
-                {group.sales.length} transaction
-                {group.sales.length !== 1 ? "s" : ""}
+              <p className="text-xs text-textSecondary flex items-center gap-1 mb-2">
+                <Phone className="w-3 h-3" /> {group.phone}
               </p>
+              <div className="flex gap-3">
+                {group.toReceive > 0 && (
+                  <p className="text-xs text-success font-medium">
+                    To Receive ₹{group.toReceive.toFixed(2)}
+                  </p>
+                )}
+                {group.toPay > 0 && (
+                  <p className="text-xs text-danger font-medium">
+                    To Pay ₹{group.toPay.toFixed(2)}
+                  </p>
+                )}
+                {group.toReceive === 0 && group.toPay === 0 && (
+                  <p className="text-xs text-textSecondary">Settled</p>
+                )}
+              </div>
             </Card>
           </button>
         ))}
       </div>
 
-      {/* PARTY MODAL */}
       {viewingPartyLive && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]"
-          onClick={handleCloseParty}
+          onClick={() => {
+            setViewingParty(null);
+            setPayingParty(false);
+          }}
         >
           <Card
             className="w-full max-w-sm max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* EDIT PARTY */}
             {editingParty ? (
               <div className="flex flex-col gap-3 mb-4">
                 <p className="font-heading font-bold">Edit Party</p>
-
                 <Input
                   label="Name"
                   name="editPartyName"
                   value={editPartyName}
                   onChange={(e) => setEditPartyName(e.target.value)}
                 />
-
                 <Input
                   label="Phone"
                   name="editPartyPhone"
@@ -553,28 +301,42 @@ function UdhaarGiven() {
                     )
                   }
                 />
-
                 {editPartyError && (
                   <p className="text-danger text-sm">{editPartyError}</p>
                 )}
-
                 <div className="flex gap-2">
                   <Button
-                    type="button"
                     variant="primary"
-                    onClick={handleUpdateParty}
+                    onClick={async () => {
+                      setEditPartyError("");
+                      if (!editPartyName.trim())
+                        return setEditPartyError("Enter a name.");
+                      if (!/^\d{10}$/.test(editPartyPhone.trim()))
+                        return setEditPartyError(
+                          "Enter a valid 10-digit phone number.",
+                        );
+                      try {
+                        await updateParty(
+                          viewingPartyLive.id,
+                          editPartyName,
+                          editPartyPhone,
+                        );
+                        setEditingParty(false);
+                      } catch (err) {
+                        setEditPartyError(
+                          err.message?.includes("duplicate")
+                            ? "This phone number is already used."
+                            : "Failed to update.",
+                        );
+                      }
+                    }}
                     className="flex-1"
                   >
                     Save
                   </Button>
-
                   <Button
-                    type="button"
                     variant="secondary"
-                    onClick={() => {
-                      setEditingParty(false);
-                      setEditPartyError("");
-                    }}
+                    onClick={() => setEditingParty(false)}
                     className="flex-1"
                   >
                     Cancel
@@ -582,42 +344,39 @@ function UdhaarGiven() {
                 </div>
               </div>
             ) : (
-              /* PARTY HEADER */
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <p className="font-heading font-bold text-lg">
                     {viewingPartyLive.name}
                   </p>
-
                   <p className="text-xs text-textSecondary flex items-center gap-1 mt-0.5">
-                    <Phone className="w-3 h-3" />
-                    {viewingPartyLive.phone || "No phone"}
+                    <Phone className="w-3 h-3" /> {viewingPartyLive.phone}
                   </p>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  {/* EDIT */}
                   <button
-                    type="button"
-                    onClick={handleStartEditing}
+                    onClick={() => {
+                      setEditingParty(true);
+                      setEditPartyName(viewingPartyLive.name);
+                      setEditPartyPhone(viewingPartyLive.phone);
+                    }}
                     className="text-textSecondary hover:text-primary"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
-
-                  {/* DELETE */}
                   {confirmDeleteParty ? (
                     <div className="flex items-center gap-1">
                       <button
-                        type="button"
-                        onClick={handleDeleteParty}
+                        onClick={async () => {
+                          await deleteParty(viewingPartyLive.id);
+                          setViewingParty(null);
+                          setConfirmDeleteParty(false);
+                        }}
                         className="text-danger text-xs font-medium"
                       >
                         Yes
                       </button>
-
                       <button
-                        type="button"
                         onClick={() => setConfirmDeleteParty(false)}
                         className="text-textSecondary text-xs"
                       >
@@ -626,21 +385,17 @@ function UdhaarGiven() {
                     </div>
                   ) : (
                     <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmDeleteParty(true);
-                        setEditPartyError("");
-                      }}
+                      onClick={() => setConfirmDeleteParty(true)}
                       className="text-textSecondary hover:text-danger"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-
-                  {/* CLOSE */}
                   <button
-                    type="button"
-                    onClick={handleCloseParty}
+                    onClick={() => {
+                      setViewingParty(null);
+                      setPayingParty(false);
+                    }}
                     className="text-textSecondary"
                   >
                     <X className="w-5 h-5" />
@@ -649,192 +404,218 @@ function UdhaarGiven() {
               </div>
             )}
 
-            {/* PARTY DETAILS */}
             {!editingParty && (
               <>
-                {/* TOTAL OWED */}
-                <Card className="mb-3 border-parties/30">
-                  <p className="text-xs text-textSecondary">Total Owed</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <Card className="!p-2.5 border-success/30">
+                    <p className="text-[10px] text-textSecondary">To Receive</p>
+                    <p className="text-lg font-heading font-bold text-success">
+                      ₹{viewingPartyLive.toReceive.toFixed(2)}
+                    </p>
+                  </Card>
+                  <Card className="!p-2.5 border-danger/30">
+                    <p className="text-[10px] text-textSecondary">To Pay</p>
+                    <p className="text-lg font-heading font-bold text-danger">
+                      ₹{viewingPartyLive.toPay.toFixed(2)}
+                    </p>
+                  </Card>
+                </div>
 
-                  <p className="text-xl font-heading font-bold text-parties">
-                    ₹{Number(viewingPartyLive.totalOwed || 0).toFixed(2)}
-                  </p>
-                </Card>
-
-                {/* PURCHASE HISTORY */}
-                <p className="text-xs font-medium text-textSecondary mb-2">
-                  Purchase History
-                </p>
-
-                {viewingPartyLive.sales.length === 0 && (
-                  <p className="text-textSecondary text-xs">
-                    No Udhaar purchases yet for this party.
-                  </p>
+                {viewingPartyLive.toReceive > 0 && (
+                  <Card className="mb-3">
+                    {payingParty ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium">
+                          Record Payment (clears oldest items first)
+                        </p>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="date"
+                            value={payDate}
+                            max={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => setPayDate(e.target.value)}
+                            className="bg-background border border-border rounded-control px-2 py-1.5 text-xs"
+                          />
+                          <input
+                            type="number"
+                            autoFocus
+                            value={payAmount}
+                            onChange={(e) => setPayAmount(e.target.value)}
+                            placeholder={`up to ₹${viewingPartyLive.toReceive.toFixed(2)}`}
+                            className="flex-1 bg-background border border-border rounded-control px-2 py-1.5 text-xs"
+                          />
+                        </div>
+                        {payError && (
+                          <p className="text-danger text-xs">{payError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="primary"
+                            onClick={handleRecordPartyPayment}
+                            className="flex-1"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setPayingParty(false);
+                              setPayAmount("");
+                              setPayError("");
+                            }}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          setPayingParty(true);
+                          setPayAmount("");
+                          setPayDate(new Date().toISOString().split("T")[0]);
+                        }}
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> Record Payment
+                      </Button>
+                    )}
+                  </Card>
                 )}
 
-                <div className="flex flex-col gap-2">
-                  {viewingPartyLive.sales.map((sale) => {
-                    const saleTotal = Number(sale?.total) || 0;
-
-                    const receivedAmount = Number(sale?.receivedAmount) || 0;
-
-                    const balanceDue = Math.max(0, saleTotal - receivedAmount);
-
-                    const isPaid = balanceDue <= 0;
-
-                    return (
-                      <Card key={sale.id} className="!p-2.5">
-                        {/* SALE HEADER */}
-                        <div className="flex justify-between items-start mb-1">
-                          <div>
-                            <p className="text-sm font-medium">
-                              {sale.productName || "Unknown Product"} ×{" "}
-                              {sale.qtySold ?? 0}
-                            </p>
-
-                            <p className="text-xs text-textSecondary">
-                              {formatDate(sale.date)} · {sale.time || ""}
-                            </p>
-                          </div>
-
-                          <p className="font-heading font-bold text-sm">
-                            ₹{saleTotal.toFixed(2)}
-                          </p>
-                        </div>
-
-                        {/* PAYMENT SUMMARY */}
-                        <div className="flex justify-between items-center text-[10px] mb-1.5">
-                          <span className="text-success font-medium">
-                            Jama ₹{receivedAmount.toFixed(2)}
-                          </span>
-
-                          <span
-                            className={
-                              isPaid
-                                ? "text-success font-medium"
-                                : "text-danger font-medium"
-                            }
-                          >
-                            {isPaid
-                              ? "Paid"
-                              : `Bakaya ₹${balanceDue.toFixed(2)}`}
-                          </span>
-                        </div>
-
-                        {/* PAYMENT HISTORY BUTTON */}
-                        {receivedAmount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => toggleHistory(sale.id)}
-                            className="text-[10px] text-textSecondary underline mb-1.5"
-                          >
-                            {paymentHistories[sale.id]
-                              ? "Hide payment history"
-                              : "View payment history"}
-                          </button>
-                        )}
-
-                        {/* PAYMENT HISTORY */}
-                        {paymentHistories[sale.id] && (
-                          <div className="flex flex-col gap-1 mb-1.5 pl-2 border-l border-white/10">
-                            {paymentHistories[sale.id].length === 0 ? (
-                              <p className="text-[10px] text-textSecondary/70">
-                                No individual payments logged.
+                {viewingPartyLive.sales.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-textSecondary mb-2">
+                      Udhaar Sale History (items you sold)
+                    </p>
+                    <div className="flex flex-col gap-2 mb-4">
+                      {viewingPartyLive.sales.map((s) => {
+                        const balanceDue = Math.max(
+                          0,
+                          s.total - (s.receivedAmount || 0),
+                        );
+                        const isPaid = balanceDue <= 0;
+                        return (
+                          <Card key={s.id} className="!p-2.5">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {s.productName} × {s.qtySold}
+                                </p>
+                                <p className="text-xs text-textSecondary">
+                                  {formatDate(s.date)} · {s.time}
+                                </p>
+                              </div>
+                              <p className="font-heading font-bold text-sm">
+                                ₹{s.total.toFixed(2)}
                               </p>
-                            ) : (
-                              paymentHistories[sale.id].map((payment) => {
-                                const paymentAmount =
-                                  Number(payment?.amount) || 0;
-
-                                return (
+                            </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-success font-medium">
+                                Jama ₹{(s.receivedAmount || 0).toFixed(2)}
+                              </span>
+                              <span
+                                className={
+                                  isPaid
+                                    ? "text-success font-medium"
+                                    : "text-danger font-medium"
+                                }
+                              >
+                                {isPaid
+                                  ? "Paid"
+                                  : `Bakaya ₹${balanceDue.toFixed(2)}`}
+                              </span>
+                            </div>
+                            {(s.receivedAmount || 0) > 0 && (
+                              <button
+                                onClick={() => toggleHistory(s.id)}
+                                className="text-[10px] text-textSecondary underline mt-1"
+                              >
+                                {paymentHistories[s.id]
+                                  ? "Hide payment history"
+                                  : "View payment history"}
+                              </button>
+                            )}
+                            {paymentHistories[s.id] && (
+                              <div className="flex flex-col gap-1 mt-1.5 pl-2 border-l border-white/10">
+                                {paymentHistories[s.id].map((p) => (
                                   <p
-                                    key={payment.id}
+                                    key={p.id}
                                     className="text-[10px] text-textSecondary"
                                   >
-                                    {formatDate(payment.payment_date)} —{" "}
+                                    {formatDate(p.payment_date)} —{" "}
                                     <span className="text-success">
-                                      ₹{paymentAmount.toFixed(2)}
+                                      ₹{p.amount.toFixed(2)}
                                     </span>
                                   </p>
-                                );
-                              })
+                                ))}
+                              </div>
                             )}
-                          </div>
-                        )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
-                        {/* RECORD PAYMENT */}
-                        {!isPaid &&
-                          (payingId === sale.id ? (
-                            <div className="flex flex-col gap-1.5 mt-1.5">
-                              <div className="flex gap-1.5">
-                                <input
-                                  type="date"
-                                  value={payDate}
-                                  max={getTodayLocalDate()}
-                                  onChange={(e) => setPayDate(e.target.value)}
-                                  className="bg-background border border-white/10 rounded-control px-2 py-1.5 text-xs"
-                                />
-
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  autoFocus
-                                  value={payAmount}
-                                  onChange={(e) => setPayAmount(e.target.value)}
-                                  placeholder={`up to ₹${balanceDue.toFixed(
-                                    2,
-                                  )}`}
-                                  className="flex-1 bg-background border border-white/10 rounded-control px-2 py-1.5 text-xs"
-                                />
-                              </div>
-
-                              <div className="flex gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRecordPayment(sale)}
-                                  className="flex-1 bg-primary text-background text-xs font-medium py-1.5 rounded-control"
-                                >
-                                  Save
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPayingId(null);
-                                    setPayAmount("");
-                                    setPayError("");
-                                  }}
-                                  className="text-textSecondary text-xs px-3"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-
-                              {payError && (
-                                <p className="text-danger text-[10px]">
-                                  {payError}
+                {viewingPartyLive.purchases.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-textSecondary mb-2">
+                      Udhaar Purchase History (items you bought)
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {viewingPartyLive.purchases.map((p) => {
+                        const balanceDue = Math.max(
+                          0,
+                          p.total - (p.receivedAmount || 0),
+                        );
+                        const isPaid = balanceDue <= 0;
+                        return (
+                          <Card key={p.id} className="!p-2.5">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {p.productName} × {p.qty}
                                 </p>
-                              )}
+                                <p className="text-xs text-textSecondary">
+                                  {formatDate(p.date)} · {p.time}
+                                </p>
+                              </div>
+                              <p className="font-heading font-bold text-sm">
+                                ₹{p.total.toFixed(2)}
+                              </p>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPayingId(sale.id);
-                                setPayAmount("");
-                                setPayDate(getTodayLocalDate());
-                                setPayError("");
-                              }}
-                              className="text-primary text-xs font-medium mt-1"
-                            >
-                              + Record Payment
-                            </button>
-                          ))}
-                      </Card>
-                    );
-                  })}
-                </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-success font-medium">
+                                Paid ₹{(p.receivedAmount || 0).toFixed(2)}
+                              </span>
+                              <span
+                                className={
+                                  isPaid
+                                    ? "text-success font-medium"
+                                    : "text-danger font-medium"
+                                }
+                              >
+                                {isPaid
+                                  ? "Paid"
+                                  : `Due ₹${balanceDue.toFixed(2)}`}
+                              </span>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {viewingPartyLive.sales.length === 0 &&
+                  viewingPartyLive.purchases.length === 0 && (
+                    <p className="text-textSecondary text-xs">
+                      No Udhaar/Credit history yet for this party.
+                    </p>
+                  )}
               </>
             )}
           </Card>

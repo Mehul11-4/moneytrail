@@ -210,6 +210,27 @@ export function useSales() {
     await loadAllPayments();
   };
 
+  // Apply ONE lump payment across a party's outstanding Udhaar sales,
+  // oldest first, until the amount is fully used or balances run out.
+  const recordPartyPayment = async (partyId, totalAmount, paymentDate) => {
+    const outstandingSales = sales
+      .filter((s) => s.partyId === partyId && s.paymentMode === "Udhaar")
+      .filter((s) => s.total - (s.receivedAmount || 0) > 0)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    let remaining = totalAmount;
+    for (const sale of outstandingSales) {
+      if (remaining <= 0) break;
+      const balanceDue = sale.total - (sale.receivedAmount || 0);
+      const applyAmount = Math.min(balanceDue, remaining);
+      if (applyAmount > 0) {
+        await recordPayment(sale.id, applyAmount, paymentDate);
+        remaining -= applyAmount;
+      }
+    }
+    return totalAmount - remaining; // actual amount successfully applied
+  };
+
   const getPaymentHistory = async (saleId) => {
     const { data, error } = await supabase
       .from("udhaar_payments")

@@ -131,10 +131,11 @@ export function usePurchases() {
       qty: item.qty,
       units: item.units,
       rate: item.rate,
-      total: item.total, // use the exact amount the user saw — never recompute
+      total: item.total,
       party_name: meta.partyName,
       billing_name: meta.billingName || meta.partyName,
       party_phone: meta.partyPhone,
+      party_id: meta.partyId || null,
       received_amount: meta.paidAmount,
       payment_mode: meta.paymentMode,
       date: finalDate,
@@ -171,12 +172,11 @@ export function usePurchases() {
         qty: item.qty,
         units: item.units,
         rate: item.rate,
-        total: item.total, // use the exact amount the user saw — never recompute
+        total: item.total,
         party_name: meta.partyName,
         billing_name: meta.billingName || meta.partyName,
         party_phone: meta.partyPhone,
-        // Received amount applies to the whole transaction — store it on the
-        // first row only, matching how Sale handles multi-item transactions.
+        party_id: meta.partyId || null,
         received_amount: i === 0 ? meta.paidAmount : 0,
         payment_mode: meta.paymentMode,
         date: finalDate,
@@ -236,6 +236,7 @@ function mapFromDb(rows) {
     partyName: p.party_name,
     billingName: p.billing_name,
     partyPhone: p.party_phone,
+    partyId: p.party_id,
     receivedAmount: p.received_amount || 0,
     paymentMode: p.payment_mode,
     date: p.date,
