@@ -250,6 +250,7 @@ function mapSalesFromDb(rows) {
     billingName: s.billing_name,
     customerPhone: s.customer_phone,
     receivedAmount: s.received_amount || 0,
+    partyId: s.party_id,
     date: s.date,
     time: s.time,
     createdAt: s.created_at,
