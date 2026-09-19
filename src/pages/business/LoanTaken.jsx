@@ -20,7 +20,13 @@ import { formatDate } from "../../utils/formatDate";
 function LoanTaken() {
   const { loans, loading, addLoan, updateLoan, deleteLoan, toggleRepaid } =
     useLoans();
-  const { lenders, loading: lendersLoading, addLender } = useLenders();
+  const {
+    lenders,
+    loading: lendersLoading,
+    addLender,
+    updateLender,
+    deleteLender,
+  } = useLenders();
 
   const [showForm, setShowForm] = useState(false);
   const [showLenderPicker, setShowLenderPicker] = useState(false);
@@ -45,6 +51,11 @@ function LoanTaken() {
   const [editDate, setEditDate] = useState("");
   const [editNote, setEditNote] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [editingLender, setEditingLender] = useState(false);
+  const [editLenderName, setEditLenderName] = useState("");
+  const [editLenderPhone, setEditLenderPhone] = useState("");
+  const [editLenderError, setEditLenderError] = useState("");
+  const [confirmDeleteLender, setConfirmDeleteLender] = useState(false);
 
   const selectedLender = useMemo(
     () => lenders.find((l) => l.id === selectedLenderId),
@@ -425,159 +436,260 @@ function LoanTaken() {
             className="w-full max-w-sm max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <p className="font-heading font-bold text-lg">
-                  {viewingLenderLive.name}
-                </p>
-                {viewingLenderLive.phone && (
-                  <p className="text-xs text-textSecondary flex items-center gap-1 mt-0.5">
-                    <Phone className="w-3 h-3" /> {viewingLenderLive.phone}
-                  </p>
+            {editingLender ? (
+              <div className="flex flex-col gap-3 mb-4">
+                <p className="font-heading font-bold">Edit Lender</p>
+                <Input
+                  label="Name"
+                  name="editLenderName"
+                  value={editLenderName}
+                  onChange={(e) => setEditLenderName(e.target.value)}
+                />
+                <Input
+                  label="Phone (optional)"
+                  name="editLenderPhone"
+                  type="tel"
+                  value={editLenderPhone}
+                  onChange={(e) =>
+                    setEditLenderPhone(
+                      e.target.value.replace(/\D/g, "").slice(0, 10),
+                    )
+                  }
+                />
+                {editLenderError && (
+                  <p className="text-danger text-sm">{editLenderError}</p>
                 )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={async () => {
+                      setEditLenderError("");
+                      if (!editLenderName.trim())
+                        return setEditLenderError("Enter a name.");
+                      try {
+                        await updateLender(
+                          viewingLenderLive.id,
+                          editLenderName,
+                          editLenderPhone,
+                        );
+                        setEditingLender(false);
+                      } catch (err) {
+                        setEditLenderError("Failed to update.");
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEditingLender(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  setViewingLender(null);
-                  setEditingLoan(null);
-                }}
-                className="text-textSecondary"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {viewingLenderLive.entries.length === 0 && (
-              <p className="text-textSecondary text-xs">
-                No loans recorded yet for this lender.
-              </p>
-            )}
-
-            <div className="flex flex-col gap-2">
-              {viewingLenderLive.entries.map((loan) => (
-                <Card
-                  key={loan.id}
-                  className={loan.is_repaid ? "opacity-50" : ""}
-                >
-                  {editingLoan?.id === loan.id ? (
-                    <div className="flex flex-col gap-2">
-                      <Input
-                        label="Amount (₹)"
-                        name="editAmount"
-                        type="number"
-                        value={editAmount}
-                        onChange={(e) => setEditAmount(e.target.value)}
-                      />
-                      <Input
-                        label="Interest Rate %"
-                        name="editRate"
-                        type="number"
-                        value={editRate}
-                        onChange={(e) => setEditRate(e.target.value)}
-                      />
-                      <Input
-                        label="Date"
-                        name="editDate"
-                        type="date"
-                        value={editDate}
-                        onChange={(e) => setEditDate(e.target.value)}
-                      />
-                      <Input
-                        label="Note"
-                        name="editNote"
-                        value={editNote}
-                        onChange={(e) => setEditNote(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          variant="primary"
-                          onClick={handleSaveEdit}
-                          className="flex-1"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => setEditingLoan(null)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
+            ) : (
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p className="font-heading font-bold text-lg">
+                    {viewingLenderLive.name}
+                  </p>
+                  {viewingLenderLive.phone && (
+                    <p className="text-xs text-textSecondary flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3 h-3" /> {viewingLenderLive.phone}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingLender(true);
+                      setEditLenderName(viewingLenderLive.name);
+                      setEditLenderPhone(viewingLenderLive.phone || "");
+                    }}
+                    className="text-textSecondary hover:text-primary"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  {confirmDeleteLender ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={async () => {
+                          await deleteLender(viewingLenderLive.id);
+                          setViewingLender(null);
+                          setConfirmDeleteLender(false);
+                        }}
+                        className="text-danger text-xs font-medium"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteLender(false)}
+                        className="text-textSecondary text-xs"
+                      >
+                        No
+                      </button>
                     </div>
                   ) : (
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-heading font-bold">
-                          ₹{loan.amount.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-textSecondary">
-                          {formatDate(loan.date)}
-                        </p>
-                        {loan.interest_rate ? (
-                          <p className="text-xs text-textSecondary">
-                            Interest: {loan.interest_rate}%
-                          </p>
-                        ) : null}
-                        {loan.note && (
-                          <p className="text-xs text-textSecondary">
-                            {loan.note}
-                          </p>
-                        )}
-                        {loan.is_repaid && (
-                          <p className="text-xs text-success font-medium mt-1">
-                            ✓ Repaid
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEdit(loan)}
-                            className="text-textSecondary hover:text-primary"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          {confirmDeleteId === loan.id ? (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={async () => {
-                                  await deleteLoan(loan.id);
-                                  setConfirmDeleteId(null);
-                                }}
-                                className="text-danger text-xs font-medium"
-                              >
-                                Yes
-                              </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="text-textSecondary text-xs"
-                              >
-                                No
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmDeleteId(loan.id)}
-                              className="text-textSecondary hover:text-danger"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleRepaid(loan.id, !loan.is_repaid)}
-                          className={`text-xs px-2 py-1 rounded-control border flex items-center gap-1 ${loan.is_repaid ? "border-border text-textSecondary" : "border-success/40 text-success"}`}
-                        >
-                          <Check className="w-3 h-3" />{" "}
-                          {loan.is_repaid ? "Mark Unpaid" : "Mark Repaid"}
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => setConfirmDeleteLender(true)}
+                      className="text-textSecondary hover:text-danger"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
-                </Card>
-              ))}
-            </div>
+                  <button
+                    onClick={() => {
+                      setViewingLender(null);
+                      setEditingLoan(null);
+                    }}
+                    className="text-textSecondary"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!editingLender && (
+              <>
+                {viewingLenderLive.entries.length === 0 && (
+                  <p className="text-textSecondary text-xs">
+                    No loans recorded yet for this lender.
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {viewingLenderLive.entries.map((loan) => (
+                    <Card
+                      key={loan.id}
+                      className={loan.is_repaid ? "opacity-50" : ""}
+                    >
+                      {editingLoan?.id === loan.id ? (
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            label="Amount (₹)"
+                            name="editAmount"
+                            type="number"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                          />
+                          <Input
+                            label="Interest Rate %"
+                            name="editRate"
+                            type="number"
+                            value={editRate}
+                            onChange={(e) => setEditRate(e.target.value)}
+                          />
+                          <Input
+                            label="Date"
+                            name="editDate"
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
+                          />
+                          <Input
+                            label="Note"
+                            name="editNote"
+                            value={editNote}
+                            onChange={(e) => setEditNote(e.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              variant="primary"
+                              onClick={handleSaveEdit}
+                              className="flex-1"
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => setEditingLoan(null)}
+                              className="flex-1"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-heading font-bold">
+                              ₹{loan.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-textSecondary">
+                              {formatDate(loan.date)}
+                            </p>
+                            {loan.interest_rate ? (
+                              <p className="text-xs text-textSecondary">
+                                Interest: {loan.interest_rate}%
+                              </p>
+                            ) : null}
+                            {loan.note && (
+                              <p className="text-xs text-textSecondary">
+                                {loan.note}
+                              </p>
+                            )}
+                            {loan.is_repaid && (
+                              <p className="text-xs text-success font-medium mt-1">
+                                ✓ Repaid
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openEdit(loan)}
+                                className="text-textSecondary hover:text-primary"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              {confirmDeleteId === loan.id ? (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={async () => {
+                                      await deleteLoan(loan.id);
+                                      setConfirmDeleteId(null);
+                                    }}
+                                    className="text-danger text-xs font-medium"
+                                  >
+                                    Yes
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="text-textSecondary text-xs"
+                                  >
+                                    No
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteId(loan.id)}
+                                  className="text-textSecondary hover:text-danger"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              onClick={() =>
+                                toggleRepaid(loan.id, !loan.is_repaid)
+                              }
+                              className={`text-xs px-2 py-1 rounded-control border flex items-center gap-1 ${loan.is_repaid ? "border-border text-textSecondary" : "border-success/40 text-success"}`}
+                            >
+                              <Check className="w-3 h-3" />{" "}
+                              {loan.is_repaid ? "Mark Unpaid" : "Mark Repaid"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
           </Card>
         </div>
       )}

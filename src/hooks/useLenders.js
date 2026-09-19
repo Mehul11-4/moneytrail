@@ -44,5 +44,33 @@ export function useLenders() {
     return data;
   };
 
-  return { lenders, loading, addLender, loadLenders };
+  const updateLender = async (id, name, phone) => {
+    const { error } = await supabase
+      .from("lenders")
+      .update({ name: name.trim(), phone: phone?.trim() || null })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase update lender error:", error);
+      throw error;
+    }
+    await loadLenders();
+  };
+
+  const deleteLender = async (id) => {
+    const { error } = await supabase.from("lenders").delete().eq("id", id);
+    if (error) {
+      console.error("Supabase delete lender error:", error);
+      throw error;
+    }
+    await loadLenders();
+  };
+
+  return {
+    lenders,
+    loading,
+    addLender,
+    updateLender,
+    deleteLender,
+    loadLenders,
+  };
 }

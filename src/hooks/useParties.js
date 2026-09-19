@@ -46,5 +46,34 @@ export function useParties() {
     return await addParty(name, phone);
   };
 
-  return { parties, loading, addParty, findOrCreateParty, loadParties };
+  const updateParty = async (id, name, phone) => {
+    const { error } = await supabase
+      .from("parties")
+      .update({ name: name.trim(), phone: phone.trim() })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase update party error:", error);
+      throw error;
+    }
+    await loadParties();
+  };
+
+  const deleteParty = async (id) => {
+    const { error } = await supabase.from("parties").delete().eq("id", id);
+    if (error) {
+      console.error("Supabase delete party error:", error);
+      throw error;
+    }
+    await loadParties();
+  };
+
+  return {
+    parties,
+    loading,
+    addParty,
+    findOrCreateParty,
+    updateParty,
+    deleteParty,
+    loadParties,
+  };
 }
