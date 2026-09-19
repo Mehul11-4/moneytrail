@@ -15,7 +15,6 @@ const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 function Purchase() {
   const { products } = useProducts();
-  const { productTypes } = useProductTypes();
   const { purchases, recordPurchase, recordMultiPurchase } = usePurchases();
   const { parties, addParty } = useParties();
 
