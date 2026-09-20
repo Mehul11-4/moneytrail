@@ -220,6 +220,7 @@ function Purchase() {
         partyName: selectedParty?.name || null,
         partyPhone: selectedParty?.phone || null,
         partyId: selectedParty?.id || null,
+        paidAmount: finalPaidAmount,
         paymentMode,
         purchaseDate,
         description: description?.trim() || null,

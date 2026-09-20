@@ -138,6 +138,7 @@ export function usePurchases() {
       party_id: meta.partyId || null,
       received_amount: meta.paidAmount,
       payment_mode: meta.paymentMode,
+      description: meta.description || null,
       date: finalDate,
       time,
     });
@@ -179,6 +180,7 @@ export function usePurchases() {
         party_id: meta.partyId || null,
         received_amount: i === 0 ? meta.paidAmount : 0,
         payment_mode: meta.paymentMode,
+        description: i === 0 ? meta.description || null : null,
         date: finalDate,
         time,
         transaction_id: transactionId,
@@ -295,6 +297,7 @@ function mapFromDb(rows) {
     partyId: p.party_id,
     receivedAmount: p.received_amount || 0,
     paymentMode: p.payment_mode,
+    description: p.description,
     date: p.date,
     time: p.time,
     transactionId: p.transaction_id,
