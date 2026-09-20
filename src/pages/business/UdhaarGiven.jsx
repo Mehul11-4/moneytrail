@@ -10,7 +10,7 @@ import { formatDate } from "../../utils/formatDate";
 
 function UdhaarGiven() {
   const { sales, loading, recordPartyPayment, getPaymentHistory } = useSales();
-  const { purchases } = usePurchases();
+  const { purchases, recordPartyPurchasePayment } = usePurchases();
   const {
     parties,
     loading: partiesLoading,
@@ -36,6 +36,12 @@ function UdhaarGiven() {
     new Date().toISOString().split("T")[0],
   );
   const [payError, setPayError] = useState("");
+  const [settlingParty, setSettlingParty] = useState(false);
+  const [settleAmount, setSettleAmount] = useState("");
+  const [settleDate, setSettleDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [settleError, setSettleError] = useState("");
   const [paymentHistories, setPaymentHistories] = useState({});
 
   const grouped = useMemo(() => {
@@ -122,6 +128,23 @@ function UdhaarGiven() {
       setPayAmount("");
     } catch (err) {
       setPayError(err.message || "Failed to record payment.");
+    }
+  };
+
+  const handleSettlePartyPurchase = async () => {
+    setSettleError("");
+    const amount = parseFloat(settleAmount);
+    if (!amount || amount <= 0) return setSettleError("Enter a valid amount.");
+    if (amount > viewingPartyLive.toPay)
+      return setSettleError(
+        `Cannot exceed total owed of ₹${viewingPartyLive.toPay.toFixed(2)}.`,
+      );
+    try {
+      await recordPartyPurchasePayment(viewingPartyLive.id, amount, settleDate);
+      setSettlingParty(false);
+      setSettleAmount("");
+    } catch (err) {
+      setSettleError(err.message || "Failed to settle payment.");
     }
   };
 
@@ -480,6 +503,70 @@ function UdhaarGiven() {
                         className="w-full flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4" /> Record Payment
+                      </Button>
+                    )}
+                  </Card>
+                )}
+
+                {viewingPartyLive.toPay > 0 && (
+                  <Card className="mb-3">
+                    {settlingParty ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium">
+                          Settle Payment (clears oldest items first)
+                        </p>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="date"
+                            value={settleDate}
+                            max={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => setSettleDate(e.target.value)}
+                            className="bg-background border border-border rounded-control px-2 py-1.5 text-xs"
+                          />
+                          <input
+                            type="number"
+                            autoFocus
+                            value={settleAmount}
+                            onChange={(e) => setSettleAmount(e.target.value)}
+                            placeholder={`up to ₹${viewingPartyLive.toPay.toFixed(2)}`}
+                            className="flex-1 bg-background border border-border rounded-control px-2 py-1.5 text-xs"
+                          />
+                        </div>
+                        {settleError && (
+                          <p className="text-danger text-xs">{settleError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="danger"
+                            onClick={handleSettlePartyPurchase}
+                            className="flex-1"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setSettlingParty(false);
+                              setSettleAmount("");
+                              setSettleError("");
+                            }}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          setSettlingParty(true);
+                          setSettleAmount("");
+                          setSettleDate(new Date().toISOString().split("T")[0]);
+                        }}
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> Settle Payment
                       </Button>
                     )}
                   </Card>

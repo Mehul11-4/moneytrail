@@ -193,6 +193,60 @@ export function usePurchases() {
     await loadPurchases();
   };
 
+  const recordPurchasePayment = async (
+    purchaseId,
+    additionalAmount,
+    paymentDate,
+  ) => {
+    const { data: purchase, error: fetchErr } = await supabase
+      .from("purchases")
+      .select("total, received_amount")
+      .eq("id", purchaseId)
+      .single();
+    if (fetchErr) {
+      console.error("Supabase fetch purchase for payment error:", fetchErr);
+      throw fetchErr;
+    }
+    const newReceived = Math.min(
+      purchase.total,
+      (purchase.received_amount || 0) + additionalAmount,
+    );
+    const { error } = await supabase
+      .from("purchases")
+      .update({ received_amount: newReceived })
+      .eq("id", purchaseId);
+    if (error) {
+      console.error("Supabase record purchase payment error:", error);
+      throw error;
+    }
+    await loadPurchases();
+  };
+
+  // Apply ONE lump payment across a party's outstanding Credit purchases,
+  // oldest first — same pattern as recordPartyPayment on the Sale side.
+  const recordPartyPurchasePayment = async (
+    partyId,
+    totalAmount,
+    paymentDate,
+  ) => {
+    const outstanding = purchases
+      .filter((p) => p.partyId === partyId && p.paymentMode === "Credit")
+      .filter((p) => p.total - (p.receivedAmount || 0) > 0)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    let remaining = totalAmount;
+    for (const p of outstanding) {
+      if (remaining <= 0) break;
+      const balanceDue = p.total - (p.receivedAmount || 0);
+      const applyAmount = Math.min(balanceDue, remaining);
+      if (applyAmount > 0) {
+        await recordPurchasePayment(p.id, applyAmount, paymentDate);
+        remaining -= applyAmount;
+      }
+    }
+    return totalAmount - remaining;
+  };
+
   const deletePurchase = async (purchase) => {
     // Reverse the stock this purchase added
     const { error: rpcErr } = await supabase.rpc("adjust_stock", {
@@ -219,6 +273,8 @@ export function usePurchases() {
     loading,
     recordPurchase,
     recordMultiPurchase,
+    recordPurchasePayment,
+    recordPartyPurchasePayment,
     deletePurchase,
   };
 }
