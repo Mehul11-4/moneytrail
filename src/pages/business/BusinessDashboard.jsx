@@ -14,6 +14,7 @@ import { useSales } from "../../hooks/useSales";
 import { usePurchases } from "../../hooks/usePurchases";
 import { useLoans } from "../../hooks/useLoans";
 import { useLedger } from "../../hooks/useLedger";
+import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
 
 const JAMA_KHARCH_CATEGORIES = [
@@ -34,19 +35,24 @@ function BusinessDashboard() {
   const { purchases } = usePurchases();
   const { loans } = useLoans();
   const { entries } = useLedger();
+  const { parties } = useParties();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
-  const toReceive = useMemo(
-    () =>
-      sales
-        .filter((s) => s.paymentMode === "Udhaar")
+  // Sum per-PARTY balances (matching how Parties page calculates it) instead
+  // of scanning all sales directly — this guarantees the two numbers can
+  // never disagree, even if an old/orphaned sale has no linked party.
+  const toReceive = useMemo(() => {
+    return parties.reduce((sum, party) => {
+      const partyBalance = sales
+        .filter((s) => s.partyId === party.id && s.paymentMode === "Udhaar")
         .reduce(
-          (sum, s) => sum + Math.max(0, s.total - (s.receivedAmount || 0)),
+          (s, sale) => s + Math.max(0, sale.total - (sale.receivedAmount || 0)),
           0,
-        ),
-    [sales],
-  );
+        );
+      return sum + partyBalance;
+    }, 0);
+  }, [parties, sales]);
   const toPay = useMemo(
     () =>
       loans.filter((l) => !l.is_repaid).reduce((sum, l) => sum + l.amount, 0),
