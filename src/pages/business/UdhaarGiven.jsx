@@ -47,9 +47,30 @@ function UdhaarGiven() {
   const grouped = useMemo(() => {
     return parties
       .map((party) => {
-        const partySales = sales.filter(
+        const partySaleRows = sales.filter(
           (s) => s.partyId === party.id && s.paymentMode === "Udhaar",
         );
+        // Group into transactions (multi-item sales share a transactionId)
+        const saleTxMap = {};
+        const saleTxOrder = [];
+        partySaleRows.forEach((s) => {
+          const key = s.transactionId || s.id;
+          if (!saleTxMap[key]) {
+            saleTxMap[key] = {
+              key,
+              items: [],
+              total: 0,
+              received: 0,
+              date: s.date,
+              time: s.time,
+            };
+            saleTxOrder.push(key);
+          }
+          saleTxMap[key].items.push(s);
+          saleTxMap[key].total += s.total;
+          saleTxMap[key].received += s.receivedAmount || 0;
+        });
+        const partySales = saleTxOrder.map((k) => saleTxMap[k]);
         const partyPurchaseRows = purchases.filter(
           (p) => p.partyId === party.id && p.paymentMode === "Credit",
         );
@@ -75,7 +96,7 @@ function UdhaarGiven() {
         });
         const partyPurchases = purchaseTxOrder.map((k) => purchaseTxMap[k]);
         const toReceive = partySales.reduce(
-          (sum, s) => sum + Math.max(0, s.total - (s.receivedAmount || 0)),
+          (sum, tx) => sum + Math.max(0, tx.total - tx.received),
           0,
         );
         const toPay = partyPurchases.reduce(
@@ -169,20 +190,25 @@ function UdhaarGiven() {
     }
   };
 
-  const loadHistoryFor = async (saleId) => {
-    const history = await getPaymentHistory(saleId);
-    setPaymentHistories((prev) => ({ ...prev, [saleId]: history }));
+  const loadHistoryFor = async (txKey, saleIds) => {
+    const results = await Promise.all(
+      saleIds.map((id) => getPaymentHistory(id)),
+    );
+    const merged = results
+      .flat()
+      .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1));
+    setPaymentHistories((prev) => ({ ...prev, [txKey]: merged }));
   };
 
-  const toggleHistory = (saleId) => {
-    if (paymentHistories[saleId]) {
+  const toggleHistory = (txKey, saleIds) => {
+    if (paymentHistories[txKey]) {
       setPaymentHistories((prev) => {
         const next = { ...prev };
-        delete next[saleId];
+        delete next[txKey];
         return next;
       });
     } else {
-      loadHistoryFor(saleId);
+      loadHistoryFor(txKey, saleIds);
     }
   };
 
@@ -599,30 +625,49 @@ function UdhaarGiven() {
                       Udhaar Sale History (items you sold)
                     </p>
                     <div className="flex flex-col gap-2 mb-4">
-                      {viewingPartyLive.sales.map((s) => {
-                        const balanceDue = Math.max(
-                          0,
-                          s.total - (s.receivedAmount || 0),
-                        );
+                      {viewingPartyLive.sales.map((tx) => {
+                        const balanceDue = Math.max(0, tx.total - tx.received);
                         const isPaid = balanceDue <= 0;
+                        const saleIds = tx.items.map((i) => i.id);
                         return (
-                          <Card key={s.id} className="!p-2.5">
-                            <div className="flex justify-between items-start mb-1">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {s.productName} × {s.qtySold}
-                                </p>
-                                <p className="text-xs text-textSecondary">
-                                  {formatDate(s.date)} · {s.time}
-                                </p>
+                          <Card key={tx.key} className="!p-2.5">
+                            <p className="text-xs text-textSecondary mb-1.5">
+                              {formatDate(tx.date)} · {tx.time}
+                            </p>
+                            <div className="rounded-control border border-border overflow-hidden mb-1.5">
+                              <div className="grid grid-cols-12 bg-background/40 border-b border-border px-2 py-1 text-[9px] font-medium text-textSecondary">
+                                <div className="col-span-5">Item</div>
+                                <div className="col-span-2 text-right">Qty</div>
+                                <div className="col-span-2 text-right">
+                                  Rate
+                                </div>
+                                <div className="col-span-3 text-right">
+                                  Amount
+                                </div>
                               </div>
-                              <p className="font-heading font-bold text-sm">
-                                ₹{s.total.toFixed(2)}
-                              </p>
+                              {tx.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="grid grid-cols-12 px-2 py-1 text-xs border-b border-border last:border-b-0"
+                                >
+                                  <div className="col-span-5 truncate">
+                                    {item.productName}
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    {item.qtySold}
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    ₹{item.mrpAtSale.toFixed(2)}
+                                  </div>
+                                  <div className="col-span-3 text-right font-medium">
+                                    ₹{item.total.toFixed(2)}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
                               <span className="text-success font-medium">
-                                Jama ₹{(s.receivedAmount || 0).toFixed(2)}
+                                Jama ₹{tx.received.toFixed(2)}
                               </span>
                               <span
                                 className={
@@ -636,29 +681,35 @@ function UdhaarGiven() {
                                   : `Bakaya ₹${balanceDue.toFixed(2)}`}
                               </span>
                             </div>
-                            {(s.receivedAmount || 0) > 0 && (
+                            {tx.received > 0 && (
                               <button
-                                onClick={() => toggleHistory(s.id)}
+                                onClick={() => toggleHistory(tx.key, saleIds)}
                                 className="text-[10px] text-textSecondary underline mt-1"
                               >
-                                {paymentHistories[s.id]
+                                {paymentHistories[tx.key]
                                   ? "Hide payment history"
                                   : "View payment history"}
                               </button>
                             )}
-                            {paymentHistories[s.id] && (
+                            {paymentHistories[tx.key] && (
                               <div className="flex flex-col gap-1 mt-1.5 pl-2 border-l border-white/10">
-                                {paymentHistories[s.id].map((p) => (
-                                  <p
-                                    key={p.id}
-                                    className="text-[10px] text-textSecondary"
-                                  >
-                                    {formatDate(p.payment_date)} —{" "}
-                                    <span className="text-success">
-                                      ₹{p.amount.toFixed(2)}
-                                    </span>
+                                {paymentHistories[tx.key].length === 0 ? (
+                                  <p className="text-[10px] text-textSecondary/70">
+                                    No individual payments logged.
                                   </p>
-                                ))}
+                                ) : (
+                                  paymentHistories[tx.key].map((p) => (
+                                    <p
+                                      key={p.id}
+                                      className="text-[10px] text-textSecondary"
+                                    >
+                                      {formatDate(p.payment_date)} —{" "}
+                                      <span className="text-success">
+                                        ₹{p.amount.toFixed(2)}
+                                      </span>
+                                    </p>
+                                  ))
+                                )}
                               </div>
                             )}
                           </Card>
