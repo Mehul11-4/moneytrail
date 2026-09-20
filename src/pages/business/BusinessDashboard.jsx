@@ -47,18 +47,11 @@ function BusinessDashboard() {
         ),
     [sales],
   );
-  const toPay = useMemo(() => {
-    const loanTotal = loans
-      .filter((l) => !l.is_repaid)
-      .reduce((sum, l) => sum + l.amount, 0);
-    const creditPurchaseTotal = purchases
-      .filter((p) => p.paymentMode === "Credit")
-      .reduce(
-        (sum, p) => sum + Math.max(0, p.total - (p.receivedAmount || 0)),
-        0,
-      );
-    return loanTotal + creditPurchaseTotal;
-  }, [loans, purchases]);
+  const toPay = useMemo(
+    () =>
+      loans.filter((l) => !l.is_repaid).reduce((sum, l) => sum + l.amount, 0),
+    [loans],
+  );
 
   const todayStr = new Date().toISOString().split("T")[0];
   const todaySalesList = useMemo(

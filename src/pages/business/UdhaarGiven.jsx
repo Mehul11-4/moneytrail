@@ -50,15 +50,36 @@ function UdhaarGiven() {
         const partySales = sales.filter(
           (s) => s.partyId === party.id && s.paymentMode === "Udhaar",
         );
-        const partyPurchases = purchases.filter(
+        const partyPurchaseRows = purchases.filter(
           (p) => p.partyId === party.id && p.paymentMode === "Credit",
         );
+        // Group into transactions (multi-item purchases share a transaction_id)
+        const purchaseTxMap = {};
+        const purchaseTxOrder = [];
+        partyPurchaseRows.forEach((p) => {
+          const key = p.transactionId || p.id;
+          if (!purchaseTxMap[key]) {
+            purchaseTxMap[key] = {
+              key,
+              items: [],
+              total: 0,
+              received: 0,
+              date: p.date,
+              time: p.time,
+            };
+            purchaseTxOrder.push(key);
+          }
+          purchaseTxMap[key].items.push(p);
+          purchaseTxMap[key].total += p.total;
+          purchaseTxMap[key].received += p.receivedAmount || 0;
+        });
+        const partyPurchases = purchaseTxOrder.map((k) => purchaseTxMap[k]);
         const toReceive = partySales.reduce(
           (sum, s) => sum + Math.max(0, s.total - (s.receivedAmount || 0)),
           0,
         );
         const toPay = partyPurchases.reduce(
-          (sum, p) => sum + Math.max(0, p.total - (p.receivedAmount || 0)),
+          (sum, tx) => sum + Math.max(0, tx.total - tx.received),
           0,
         );
         return {
@@ -653,30 +674,48 @@ function UdhaarGiven() {
                       Udhaar Purchase History (items you bought)
                     </p>
                     <div className="flex flex-col gap-2">
-                      {viewingPartyLive.purchases.map((p) => {
-                        const balanceDue = Math.max(
-                          0,
-                          p.total - (p.receivedAmount || 0),
-                        );
+                      {viewingPartyLive.purchases.map((tx) => {
+                        const balanceDue = Math.max(0, tx.total - tx.received);
                         const isPaid = balanceDue <= 0;
                         return (
-                          <Card key={p.id} className="!p-2.5">
-                            <div className="flex justify-between items-start mb-1">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {p.productName} × {p.qty}
-                                </p>
-                                <p className="text-xs text-textSecondary">
-                                  {formatDate(p.date)} · {p.time}
-                                </p>
+                          <Card key={tx.key} className="!p-2.5">
+                            <p className="text-xs text-textSecondary mb-1.5">
+                              {formatDate(tx.date)} · {tx.time}
+                            </p>
+                            <div className="rounded-control border border-border overflow-hidden mb-1.5">
+                              <div className="grid grid-cols-12 bg-background/40 border-b border-border px-2 py-1 text-[9px] font-medium text-textSecondary">
+                                <div className="col-span-5">Item</div>
+                                <div className="col-span-2 text-right">Qty</div>
+                                <div className="col-span-2 text-right">
+                                  Rate
+                                </div>
+                                <div className="col-span-3 text-right">
+                                  Amount
+                                </div>
                               </div>
-                              <p className="font-heading font-bold text-sm">
-                                ₹{p.total.toFixed(2)}
-                              </p>
+                              {tx.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="grid grid-cols-12 px-2 py-1 text-xs border-b border-border last:border-b-0"
+                                >
+                                  <div className="col-span-5 truncate">
+                                    {item.productName}
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    {item.qty}
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    ₹{item.rate.toFixed(2)}
+                                  </div>
+                                  <div className="col-span-3 text-right font-medium">
+                                    ₹{item.total.toFixed(2)}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
                               <span className="text-success font-medium">
-                                Paid ₹{(p.receivedAmount || 0).toFixed(2)}
+                                Paid ₹{tx.received.toFixed(2)}
                               </span>
                               <span
                                 className={
