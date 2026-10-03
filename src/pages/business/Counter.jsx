@@ -182,6 +182,7 @@ function Counter() {
         saleDate,
       };
 
+      let stockFailed = false;
       if (validItems.length === 1) {
         const item = validItems[0];
         const product = products.find((p) => p.id === item.productId);
@@ -194,7 +195,12 @@ function Counter() {
           total: item.amount,
           ...meta,
         });
-        await deductStock(item.productId, parseFloat(item.qty), item.isStatic);
+        const { error: stockError } = await deductStock(
+          item.productId,
+          parseFloat(item.qty),
+          item.isStatic,
+        );
+        if (stockError) stockFailed = true;
       } else {
         await recordMultiSale(
           validItems.map((item) => {
@@ -210,14 +216,20 @@ function Counter() {
           }),
           meta,
         );
-        await Promise.all(
+        const stockResults = await Promise.all(
           validItems.map((item) =>
             deductStock(item.productId, parseFloat(item.qty), item.isStatic),
           ),
         );
+        if (stockResults.some((r) => r?.error)) stockFailed = true;
       }
 
       resetForm();
+      if (stockFailed) {
+        setError(
+          "Sale saved, but stock was not updated for some items. Please check Inventory.",
+        );
+      }
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err) {

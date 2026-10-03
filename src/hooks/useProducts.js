@@ -132,7 +132,7 @@ export function useProducts() {
   };
 
   const deductStock = async (id, qtySold, isStatic) => {
-    if (isStatic) return; // static products (Chai, Coffee) have no stock to deduct
+    if (isStatic) return { error: null }; // static products (Chai, Coffee) have no stock to deduct
 
     const { error } = await supabase.rpc("adjust_stock", {
       product_id: id,
@@ -143,6 +143,7 @@ export function useProducts() {
     } else {
       await loadProducts();
     }
+    return { error };
   };
 
   const restoreStockQty = async (id, qty) => {

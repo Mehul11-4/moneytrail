@@ -258,6 +258,16 @@ export function usePurchases({ onProductsChanged } = {}) {
   };
 
   const deletePurchase = async (purchase) => {
+    // Delete the purchase FIRST. Only put the stock back if that worked.
+    const { error } = await supabase
+      .from("purchases")
+      .delete()
+      .eq("id", purchase.id);
+    if (error) {
+      console.error("Supabase delete purchase error:", error);
+      return { error };
+    }
+
     // Reverse the stock this purchase added
     const { error: rpcErr } = await supabase.rpc("adjust_stock", {
       product_id: purchase.productId,
@@ -266,16 +276,9 @@ export function usePurchases({ onProductsChanged } = {}) {
     if (rpcErr)
       console.error("Supabase reverse stock on purchase delete error:", rpcErr);
 
-    const { error } = await supabase
-      .from("purchases")
-      .delete()
-      .eq("id", purchase.id);
-    if (error) {
-      console.error("Supabase delete purchase error:", error);
-    } else {
-      await loadPurchases();
-      await loadProducts();
-    }
+    await loadPurchases();
+    await loadProducts();
+    return { error: rpcErr || null };
   };
 
   return {
