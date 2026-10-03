@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { todayLocal } from "../utils/localDate";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
 export function useSales() {
   const { user } = useAuth();
@@ -10,7 +12,9 @@ export function useSales() {
   const [allPayments, setAllPayments] = useState([]);
 
   const loadAllPayments = async () => {
-    const { data, error } = await supabase.from("udhaar_payments").select("*");
+    const { data, error } = await fetchAllRows(() =>
+      supabase.from("udhaar_payments").select("*").order("id"),
+    );
     if (error) {
       console.error("Supabase load all payments error:", error);
     } else {
@@ -21,10 +25,13 @@ export function useSales() {
   const loadSales = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("sales")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows(() =>
+      supabase
+        .from("sales")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id"),
+    );
 
     if (error) {
       console.error("Supabase load sales error:", error);
@@ -40,15 +47,17 @@ export function useSales() {
   }, [loadSales]);
 
   const getNextInvoiceNo = async () => {
-    const { count } = await supabase
+    const { data } = await supabase
       .from("sales")
-      .select("*", { count: "exact", head: true });
-    return (count || 0) + 1;
+      .select("invoice_no")
+      .order("invoice_no", { ascending: false })
+      .limit(1);
+    return (data?.[0]?.invoice_no || 0) + 1;
   };
 
   const recordSale = async (sale) => {
     const now = new Date();
-    const finalDate = sale.saleDate || now.toISOString().split("T")[0];
+    const finalDate = sale.saleDate || todayLocal();
     const invoiceNo = await getNextInvoiceNo();
 
     const { error } = await supabase.from("sales").insert({
@@ -83,7 +92,7 @@ export function useSales() {
   // customer, date, and transaction_id) — used by the multi-item Sale Voucher.
   const recordMultiSale = async (cartItems, meta) => {
     const now = new Date();
-    const finalDate = meta.saleDate || now.toISOString().split("T")[0];
+    const finalDate = meta.saleDate || todayLocal();
     const time = now.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -129,46 +138,9 @@ export function useSales() {
     } else {
       await loadSales();
     }
+    return { error };
   };
 
-  // Edit a SINGLE-ITEM sale's quantity and/or date. Recalculates total using
-  // the original MRP (custom-total overrides are not preserved through an
-  // edit — re-enter a custom price by deleting and re-adding if needed).
-  // Multi-item cart sales are not editable here — delete and re-enter instead.
-  const updateSale = async (sale, newQty, newDate) => {
-    const qtyDiff = newQty - sale.qtySold;
-    if (qtyDiff !== 0) {
-      const { data: product } = await supabase
-        .from("products")
-        .select("is_static")
-        .eq("id", sale.productId)
-        .single();
-      if (product && !product.is_static) {
-        // Selling MORE than before means stock goes DOWN by the extra amount,
-        // so the delta is negative of qtyDiff.
-        const { error: rpcErr } = await supabase.rpc("adjust_stock", {
-          product_id: sale.productId,
-          delta: -qtyDiff,
-        });
-        if (rpcErr) {
-          console.error("Supabase adjust stock (atomic) error:", rpcErr);
-          throw rpcErr;
-        }
-      }
-    }
-
-    const newTotal = sale.mrpAtSale * newQty;
-    const { error } = await supabase
-      .from("sales")
-      .update({ qty_sold: newQty, total: newTotal, date: newDate })
-      .eq("id", sale.id);
-
-    if (error) {
-      console.error("Supabase update sale error:", error);
-      throw error;
-    }
-    await loadSales();
-  };
   const recordPayment = async (saleId, additionalAmount, paymentDate) => {
     const { data: sale, error: fetchErr } = await supabase
       .from("sales")
@@ -202,7 +174,7 @@ export function useSales() {
       user_id: user.id,
       sale_id: saleId,
       amount: additionalAmount,
-      payment_date: paymentDate || new Date().toISOString().split("T")[0],
+      payment_date: paymentDate || todayLocal(),
     });
     if (logErr) console.error("Supabase log udhaar payment error:", logErr);
 
@@ -250,7 +222,6 @@ export function useSales() {
     recordSale,
     recordMultiSale,
     deleteSale,
-    updateSale,
     recordPayment,
     recordPartyPayment,
     getPaymentHistory,

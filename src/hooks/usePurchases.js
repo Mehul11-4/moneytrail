@@ -2,27 +2,34 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useProducts } from "./useProducts";
+import { todayLocal } from "../utils/localDate";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
-export function usePurchases() {
+export function usePurchases({ onProductsChanged } = {}) {
   const { user } = useAuth();
   const { addProduct, loadProducts } = useProducts();
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getNextInvoiceNo = async () => {
-    const { count } = await supabase
+    const { data } = await supabase
       .from("purchases")
-      .select("*", { count: "exact", head: true });
-    return (count || 0) + 1;
+      .select("invoice_no")
+      .order("invoice_no", { ascending: false })
+      .limit(1);
+    return (data?.[0]?.invoice_no || 0) + 1;
   };
 
   const loadPurchases = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("purchases")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows(() =>
+      supabase
+        .from("purchases")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id"),
+    );
 
     if (error) {
       console.error("Supabase load purchases error:", error);
@@ -106,12 +113,13 @@ export function usePurchases() {
     }
 
     await loadProducts();
+    if (onProductsChanged) await onProductsChanged();
     return { productId: finalProductId, productName };
   };
 
   const recordPurchase = async (item, meta) => {
     const now = new Date();
-    const finalDate = meta.purchaseDate || now.toISOString().split("T")[0];
+    const finalDate = meta.purchaseDate || todayLocal();
     const time = now.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -151,7 +159,7 @@ export function usePurchases() {
 
   const recordMultiPurchase = async (items, meta) => {
     const now = new Date();
-    const finalDate = meta.purchaseDate || now.toISOString().split("T")[0];
+    const finalDate = meta.purchaseDate || todayLocal();
     const time = now.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",

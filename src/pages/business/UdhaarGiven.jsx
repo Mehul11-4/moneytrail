@@ -7,6 +7,7 @@ import { useSales } from "../../hooks/useSales";
 import { usePurchases } from "../../hooks/usePurchases";
 import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
+import { todayLocal } from "../../utils/localDate";
 
 function UdhaarGiven() {
   const { sales, loading, recordPartyPayment, getPaymentHistory } = useSales();
@@ -30,17 +31,14 @@ function UdhaarGiven() {
   const [editPartyPhone, setEditPartyPhone] = useState("");
   const [editPartyError, setEditPartyError] = useState("");
   const [confirmDeleteParty, setConfirmDeleteParty] = useState(false);
+  const [deletePartyError, setDeletePartyError] = useState(null); // { id, message }
   const [payingParty, setPayingParty] = useState(false);
   const [payAmount, setPayAmount] = useState("");
-  const [payDate, setPayDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [payDate, setPayDate] = useState(todayLocal());
   const [payError, setPayError] = useState("");
   const [settlingParty, setSettlingParty] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
-  const [settleDate, setSettleDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [settleDate, setSettleDate] = useState(todayLocal());
   const [settleError, setSettleError] = useState("");
   const [paymentHistories, setPaymentHistories] = useState({});
 
@@ -153,6 +151,27 @@ function UdhaarGiven() {
           ? "This phone number is already registered to another party."
           : "Failed to add party.",
       );
+    }
+  };
+  const handleDeleteParty = async () => {
+    const party = viewingPartyLive;
+    setConfirmDeleteParty(false);
+    setDeletePartyError(null);
+    if (party.toReceive > 0 || party.toPay > 0) {
+      return setDeletePartyError({
+        id: party.id,
+        message:
+          "This party still has money pending. Settle the balance before deleting.",
+      });
+    }
+    try {
+      await deleteParty(party.id);
+      setViewingParty(null);
+    } catch {
+      setDeletePartyError({
+        id: party.id,
+        message: "Could not delete this party. Please try again.",
+      });
     }
   };
 
@@ -437,11 +456,7 @@ function UdhaarGiven() {
                   {confirmDeleteParty ? (
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={async () => {
-                          await deleteParty(viewingPartyLive.id);
-                          setViewingParty(null);
-                          setConfirmDeleteParty(false);
-                        }}
+                        onClick={handleDeleteParty}
                         className="text-danger text-xs font-medium"
                       >
                         Yes
@@ -474,6 +489,12 @@ function UdhaarGiven() {
               </div>
             )}
 
+            {deletePartyError?.id === viewingPartyLive.id && (
+              <p className="text-danger text-xs mb-3">
+                {deletePartyError.message}
+              </p>
+            )}
+
             {!editingParty && (
               <>
                 <div className="grid grid-cols-2 gap-2 mb-3">
@@ -502,7 +523,7 @@ function UdhaarGiven() {
                           <input
                             type="date"
                             value={payDate}
-                            max={new Date().toISOString().split("T")[0]}
+                            max={todayLocal()}
                             onChange={(e) => setPayDate(e.target.value)}
                             className="bg-background border border-border rounded-control px-2 py-1.5 text-xs"
                           />
@@ -545,7 +566,7 @@ function UdhaarGiven() {
                         onClick={() => {
                           setPayingParty(true);
                           setPayAmount("");
-                          setPayDate(new Date().toISOString().split("T")[0]);
+                          setPayDate(todayLocal());
                         }}
                         className="w-full flex items-center justify-center gap-2"
                       >
@@ -566,7 +587,7 @@ function UdhaarGiven() {
                           <input
                             type="date"
                             value={settleDate}
-                            max={new Date().toISOString().split("T")[0]}
+                            max={todayLocal()}
                             onChange={(e) => setSettleDate(e.target.value)}
                             className="bg-background border border-border rounded-control px-2 py-1.5 text-xs"
                           />
@@ -609,7 +630,7 @@ function UdhaarGiven() {
                         onClick={() => {
                           setSettlingParty(true);
                           setSettleAmount("");
-                          setSettleDate(new Date().toISOString().split("T")[0]);
+                          setSettleDate(todayLocal());
                         }}
                         className="w-full flex items-center justify-center gap-2"
                       >

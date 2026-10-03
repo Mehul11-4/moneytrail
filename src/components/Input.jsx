@@ -5,6 +5,7 @@ function Input({
   onChange,
   placeholder = "",
   name,
+  max,
   required = false,
 }) {
   return (
@@ -21,10 +22,12 @@ function Input({
         id={name}
         name={name}
         type={type}
+        step={type === "number" ? "any" : undefined}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        max={max}
         className="bg-surface border border-white/10 rounded-control px-3 py-2.5 text-textPrimary text-sm placeholder:text-textSecondary/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-150"
       />
     </div>

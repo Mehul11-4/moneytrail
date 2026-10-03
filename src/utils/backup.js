@@ -1,8 +1,31 @@
 import { supabase } from "../lib/supabaseClient";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
 // ---------- FULL BACKUP (Personal + Business) ----------
 
-export async function exportData() {
+// Backup-file key -> database table, for all BUSINESS data.
+// Listed CHILD tables first (rows that point to other rows), so a restore
+// always deletes them before the rows they point to.
+const BUSINESS_TABLES = [
+  ["udhaarPayments", "udhaar_payments"],
+  ["loans", "loans"],
+  ["purchases", "purchases"],
+  ["sales", "sales"],
+  ["ledgerEntries", "ledger_entries"],
+  ["products", "products"],
+  ["lenders", "lenders"],
+  ["parties", "parties"],
+  ["productTypes", "product_types"],
+];
+
+const PERSONAL_TABLES = [
+  ["expenses", "expenses"],
+  ["budgets", "budgets"],
+  ["categories", "categories"],
+  ["balanceEntries", "balance_entries"],
+];
+
+async function buildFullBackup() {
   const [
     expenses,
     budgets,
@@ -11,6 +34,12 @@ export async function exportData() {
     products,
     sales,
     ledgerEntries,
+    purchases,
+    parties,
+    lenders,
+    loans,
+    udhaarPayments,
+    productTypes,
   ] = await Promise.all([
     fetchAll("expenses"),
     fetchAll("budgets"),
@@ -19,10 +48,16 @@ export async function exportData() {
     fetchAll("products"),
     fetchAll("sales"),
     fetchAll("ledger_entries"),
+    fetchAll("purchases"),
+    fetchAll("parties"),
+    fetchAll("lenders"),
+    fetchAll("loans"),
+    fetchAll("udhaar_payments"),
+    fetchAll("product_types"),
   ]);
 
-  const backup = {
-    version: 4,
+  return {
+    version: 5,
     exportedAt: new Date().toISOString(),
     expenses,
     budgets,
@@ -31,8 +66,17 @@ export async function exportData() {
     products,
     sales,
     ledgerEntries,
+    purchases,
+    parties,
+    lenders,
+    loans,
+    udhaarPayments,
+    productTypes,
   };
+}
 
+export async function exportData() {
+  const backup = await buildFullBackup();
   downloadJson(
     backup,
     `moneytrail-backup-${new Date().toISOString().split("T")[0]}.json`,
@@ -56,45 +100,68 @@ export async function importData(file) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("You must be logged in to import data.");
 
-  await clearTable("expenses");
-  await clearTable("budgets");
-  await clearTable("categories");
-  await clearTable("balance_entries");
-  await clearTable("products");
-  await clearTable("sales");
-  await clearTable("ledger_entries");
+  // SAFETY NET: download a copy of what is in the database right now,
+  // BEFORE anything is deleted. If the restore fails, this file is your way back.
+  const safetyCopy = await buildFullBackup();
+  downloadJson(
+    safetyCopy,
+    `moneytrail-BEFORE-restore-${new Date().toISOString().split("T")[0]}.json`,
+  );
+
+  // Only tables that the backup file actually contains are cleared.
+  await clearTablesPresentIn(data, BUSINESS_TABLES);
+  await clearTablesPresentIn(data, PERSONAL_TABLES);
 
   await insertAll("expenses", data.expenses, user.id);
   await insertAll("budgets", data.budgets, user.id);
   await insertAll("categories", data.categories, user.id);
   await insertAll("balance_entries", data.balanceEntries || [], user.id);
-
-  await insertLinkedBusinessData(
-    data.products || [],
-    data.sales || [],
-    data.ledgerEntries || [],
-    user.id,
-  );
+  await insertBusinessData(data, user.id);
 }
 
 // ---------- BUSINESS-ONLY BACKUP ----------
 
-export async function exportBusinessData() {
-  const [products, sales, ledgerEntries] = await Promise.all([
+async function buildBusinessBackup() {
+  const [
+    products,
+    sales,
+    ledgerEntries,
+    purchases,
+    parties,
+    lenders,
+    loans,
+    udhaarPayments,
+    productTypes,
+  ] = await Promise.all([
     fetchAll("products"),
     fetchAll("sales"),
     fetchAll("ledger_entries"),
+    fetchAll("purchases"),
+    fetchAll("parties"),
+    fetchAll("lenders"),
+    fetchAll("loans"),
+    fetchAll("udhaar_payments"),
+    fetchAll("product_types"),
   ]);
 
-  const backup = {
-    version: 1,
+  return {
+    version: 2,
     scope: "business",
     exportedAt: new Date().toISOString(),
     products,
     sales,
     ledgerEntries,
+    purchases,
+    parties,
+    lenders,
+    loans,
+    udhaarPayments,
+    productTypes,
   };
+}
 
+export async function exportBusinessData() {
+  const backup = await buildBusinessBackup();
   downloadJson(
     backup,
     `cbn-chai-backup-${new Date().toISOString().split("T")[0]}.json`,
@@ -119,85 +186,101 @@ export async function importBusinessData(file) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("You must be logged in to import data.");
 
-  await clearTable("products");
-  await clearTable("sales");
-  await clearTable("ledger_entries");
-
-  await insertLinkedBusinessData(
-    data.products,
-    data.sales,
-    data.ledgerEntries,
-    user.id,
+  // SAFETY NET: download the current business data before deleting anything.
+  const safetyCopy = await buildBusinessBackup();
+  downloadJson(
+    safetyCopy,
+    `cbn-chai-BEFORE-restore-${new Date().toISOString().split("T")[0]}.json`,
   );
+
+  await clearTablesPresentIn(data, BUSINESS_TABLES);
+  await insertBusinessData(data, user.id);
 }
 
 // ---------- SHARED HELPERS ----------
 
-// Products, sales, and ledger_entries reference each other via product_id.
-// Since Supabase assigns brand-new uuids on insert, we insert products FIRST,
-// build an old-id -> new-id map from the returned rows, then rewrite every
-// product_id in sales/ledgerEntries to point to the correct new product
-// before inserting those.
-async function insertLinkedBusinessData(
-  products,
-  sales,
-  ledgerEntries,
-  userId,
-) {
-  const idMap = {}; // old product id (string) -> new product id (uuid)
+// Inserts all business tables in the right order. Supabase gives every
+// inserted row a brand-new id, so for each table we remember "old id -> new id"
+// and use it to repair the links in the tables that point to it
+// (e.g. sales.product_id, sales.party_id, loans.lender_id, udhaar_payments.sale_id).
+async function insertBusinessData(data, userId) {
+  // Tables that other tables point to come first.
+  const partyIds = await insertWithIdMap("parties", data.parties, userId);
+  const lenderIds = await insertWithIdMap("lenders", data.lenders, userId);
+  const productIds = await insertWithIdMap("products", data.products, userId);
+  await insertWithIdMap("product_types", data.productTypes, userId);
 
-  if (products.length > 0) {
-    const cleanProducts = products.map(({ id, created_at, ...rest }) => ({
-      ...rest,
-      user_id: userId,
-    }));
+  const saleIds = await insertWithIdMap("sales", data.sales, userId, {
+    product_id: productIds,
+    party_id: partyIds,
+  });
+  await insertWithIdMap("purchases", data.purchases, userId, {
+    product_id: productIds,
+    party_id: partyIds,
+  });
+  await insertWithIdMap("loans", data.loans, userId, {
+    lender_id: lenderIds,
+  });
+  await insertWithIdMap("ledger_entries", data.ledgerEntries, userId, {
+    product_id: productIds,
+  });
+  await insertWithIdMap("udhaar_payments", data.udhaarPayments, userId, {
+    sale_id: saleIds,
+  });
+}
+
+// Inserts rows in batches of 500 and returns { oldId: newId }.
+// - If the backup file does not contain this table at all, returns null
+//   (so links pointing at it are left exactly as they were).
+// - `links` says which columns point to other tables, e.g.
+//   { product_id: productIds } repairs product_id using that map.
+async function insertWithIdMap(table, rows, userId, links = {}) {
+  if (!Array.isArray(rows)) return null;
+
+  const idMap = {};
+  const BATCH_SIZE = 500;
+
+  for (let start = 0; start < rows.length; start += BATCH_SIZE) {
+    const batch = rows
+      .slice(start, start + BATCH_SIZE)
+      .map(({ id, created_at, ...rest }) => {
+        const row = { ...rest, user_id: userId };
+        for (const [column, map] of Object.entries(links)) {
+          if (map && row[column]) row[column] = map[row[column]] || null;
+        }
+        return row;
+      });
+
     const { data: inserted, error } = await supabase
-      .from("products")
-      .insert(cleanProducts)
-      .select();
+      .from(table)
+      .insert(batch)
+      .select("id");
     if (error) {
-      console.error("Supabase import products error:", error);
+      console.error(`Supabase import error (${table}):`, error);
       throw error;
     }
-    products.forEach((oldProduct, i) => {
-      idMap[oldProduct.id] = inserted[i].id;
+    inserted.forEach((newRow, i) => {
+      idMap[rows[start + i].id] = newRow.id;
     });
   }
 
-  if (sales && sales.length > 0) {
-    const cleanSales = sales.map(({ id, created_at, product_id, ...rest }) => ({
-      ...rest,
-      user_id: userId,
-      product_id: product_id ? idMap[product_id] || null : null,
-    }));
-    const { error } = await supabase.from("sales").insert(cleanSales);
-    if (error) {
-      console.error("Supabase import sales error:", error);
-      throw error;
-    }
-  }
+  return idMap;
+}
 
-  if (ledgerEntries && ledgerEntries.length > 0) {
-    const cleanLedger = ledgerEntries.map(
-      ({ id, created_at, product_id, ...rest }) => ({
-        ...rest,
-        user_id: userId,
-        product_id: product_id ? idMap[product_id] || null : null,
-      }),
-    );
-    const { error } = await supabase.from("ledger_entries").insert(cleanLedger);
-    if (error) {
-      console.error("Supabase import ledger error:", error);
-      throw error;
-    }
+async function clearTablesPresentIn(data, tables) {
+  for (const [key, table] of tables) {
+    if (Array.isArray(data[key])) await clearTable(table);
   }
 }
 
 async function fetchAll(table) {
-  const { data, error } = await supabase.from(table).select("*");
+  const { data, error } = await fetchAllRows(() =>
+    supabase.from(table).select("*").order("id"),
+  );
   if (error) {
     console.error(`Supabase export error (${table}):`, error);
-    return [];
+    // Stop instead of quietly producing a backup that is missing a table.
+    throw new Error(`Could not read "${table}". Backup cancelled.`);
   }
   return data;
 }
@@ -207,9 +290,12 @@ async function clearTable(table) {
     data: { user },
   } = await supabase.auth.getUser();
   const { error } = await supabase.from(table).delete().eq("user_id", user.id);
-  if (error) console.error(`Supabase clear error (${table}):`, error);
+  if (error) {
+    console.error(`Supabase clear error (${table}):`, error);
+    // Stop instead of carrying on and inserting duplicates.
+    throw new Error(`Could not clear "${table}". Restore stopped.`);
+  }
 }
-
 async function insertAll(table, rows, userId) {
   if (!rows || rows.length === 0) return;
   const clean = rows.map(({ id, created_at, ...rest }) => ({

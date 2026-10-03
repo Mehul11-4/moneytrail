@@ -177,8 +177,14 @@ function Inventory() {
     if (selected.is_static) {
       const cost = parseFloat(form.costPrice);
       const mrp = parseFloat(form.mrpPerQty);
-      if (!cost || cost <= 0) return setError("Enter a valid cost price.");
-      if (!mrp || mrp <= 0) return setError("Enter a valid MRP.");
+      if (!cost || cost <= 0) {
+        setIsSaving(false);
+        return setError("Enter a valid cost price.");
+      }
+      if (!mrp || mrp <= 0) {
+        setIsSaving(false);
+        return setError("Enter a valid MRP.");
+      }
 
       await updateProduct(selected.id, { costPrice: cost, mrpPerQty: mrp });
       setIsEditing(false);

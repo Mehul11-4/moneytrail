@@ -85,8 +85,8 @@ function BusinessSettings() {
       <Card className="mb-4">
         <p className="text-sm font-medium mb-1">Backup Business Data</p>
         <p className="text-xs text-textSecondary mb-3">
-          Exports only Inventory, Counter sales, and Jama-Kharch — your personal
-          expense data is not included.
+          Exports Inventory, Sales, Purchases, Parties, Loans, and Jama-Kharch —
+          your personal expense data is not included.
         </p>
         <Button
           variant="primary"

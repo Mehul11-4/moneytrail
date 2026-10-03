@@ -13,6 +13,7 @@ import {
 import Card from "../components/Card";
 import { useExpenses } from "../hooks/useExpenses";
 import { useCategories } from "../hooks/useCategories";
+import { toLocalISODate, currentMonthLocal } from "../utils/localDate";
 
 function Dashboard() {
   const { expenses, loading } = useExpenses();
@@ -42,7 +43,7 @@ function Dashboard() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const iso = d.toISOString().split("T")[0];
+      const iso = toLocalISODate(d);
       const label = d.toLocaleDateString("en-US", { weekday: "short" });
       const total = expenses
         .filter((e) => e.date === iso)
@@ -58,7 +59,7 @@ function Dashboard() {
   );
 
   const thisMonthTotal = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7); // "2026-08"
+    const currentMonth = currentMonthLocal(); // "2026-08"
     return expenses
       .filter((e) => e.date.startsWith(currentMonth))
       .reduce((sum, e) => sum + e.amount, 0);

@@ -9,6 +9,7 @@ import { useSales } from "../../hooks/useSales";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { useParties } from "../../hooks/useParties";
 import { Users, Search as SearchIcon, X as XIcon } from "lucide-react";
+import { todayLocal } from "../../utils/localDate";
 
 const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
@@ -17,7 +18,7 @@ function Counter() {
   const { sales, recordSale, recordMultiSale } = useSales();
   const { parties, addParty } = useParties();
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayLocal();
   const todayTotal = useMemo(
     () =>
       sales
@@ -25,7 +26,10 @@ function Counter() {
         .reduce((sum, s) => sum + s.total, 0),
     [sales, todayStr],
   );
-  const nextInvoiceNo = useMemo(() => sales.length + 1, [sales]);
+  const nextInvoiceNo = useMemo(
+    () => Math.max(0, ...sales.map((s) => s.invoiceNo || 0)) + 1,
+    [sales],
+  );
 
   const [items, setItems] = usePersistedState("cbn_cart_items", []);
 
@@ -84,7 +88,7 @@ function Counter() {
     if (!isReceived) return 0;
     if (receivedAmount.trim() !== "") {
       const r = parseFloat(receivedAmount);
-      return isNaN(r) ? 0 : r;
+      return isNaN(r) ? 0 : Math.min(Math.max(0, r), cartTotal);
     }
     return cartTotal;
   }, [isReceived, receivedAmount, cartTotal]);
@@ -146,13 +150,16 @@ function Counter() {
     if (validItems.length === 0)
       return setError("Add at least one item with quantity and rate.");
 
+    // Add up the quantity per product first, so the same product
+    // on two rows is checked against stock as one total.
+    const qtyByProduct = {};
     for (const row of validItems) {
-      const product = products.find((p) => p.id === row.productId);
-      if (
-        product &&
-        !product.is_static &&
-        parseFloat(row.qty) > product.stock_qty
-      ) {
+      qtyByProduct[row.productId] =
+        (qtyByProduct[row.productId] || 0) + parseFloat(row.qty);
+    }
+    for (const [productId, totalQty] of Object.entries(qtyByProduct)) {
+      const product = products.find((p) => p.id === productId);
+      if (product && !product.is_static && totalQty > product.stock_qty) {
         return setError(
           `Only ${product.stock_qty} pcs of ${product.name} in stock.`,
         );
@@ -249,6 +256,15 @@ function Counter() {
               max={todayStr}
               onChange={(e) => setSaleDate(e.target.value)}
             />
+            {saleDate !== todayStr && (
+              <button
+                type="button"
+                onClick={() => setSaleDate(todayStr)}
+                className="text-warning text-xs mt-1 underline"
+              >
+                Not today's date — tap to use today
+              </button>
+            )}
           </div>
         </div>
       </Card>
@@ -417,6 +433,14 @@ function Counter() {
               />
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-white/5">
+              {isReceived &&
+                receivedAmount.trim() !== "" &&
+                parseFloat(receivedAmount) > cartTotal && (
+                  <p className="text-warning text-xs mb-2">
+                    Received can't be more than the total. Using ₹
+                    {cartTotal.toFixed(2)}.
+                  </p>
+                )}
               <p className="text-sm font-medium">Balance Due</p>
               <p
                 className={`font-heading font-bold ${balanceDue > 0 ? "text-danger" : "text-success"}`}

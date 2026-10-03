@@ -9,17 +9,23 @@ import { usePurchases } from "../../hooks/usePurchases";
 import { useParties } from "../../hooks/useParties";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { Users, Search as SearchIcon, X as XIcon } from "lucide-react";
+import { todayLocal } from "../../utils/localDate";
 
 const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 function Purchase() {
-  const { products } = useProducts();
-  const { purchases, recordPurchase, recordMultiPurchase } = usePurchases();
+  const { products, loadProducts } = useProducts();
+  const { purchases, recordPurchase, recordMultiPurchase } = usePurchases({
+    onProductsChanged: loadProducts,
+  });
   const { parties, addParty } = useParties();
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayLocal();
 
-  const nextInvoiceNo = useMemo(() => purchases.length + 1, [purchases]);
+  const nextInvoiceNo = useMemo(
+    () => Math.max(0, ...purchases.map((p) => p.invoiceNo || 0)) + 1,
+    [purchases],
+  );
 
   // -----------------------------
   // Purchase items
@@ -153,7 +159,7 @@ function Purchase() {
     if (paidAmount.trim() !== "") {
       const p = parseFloat(paidAmount);
 
-      return Number.isNaN(p) ? 0 : Math.max(0, p);
+      return Number.isNaN(p) ? 0 : Math.min(Math.max(0, p), cartTotal);
     }
 
     return cartTotal;
@@ -297,6 +303,15 @@ function Purchase() {
               max={todayStr}
               onChange={(e) => setPurchaseDate(e.target.value)}
             />
+            {purchaseDate !== todayStr && (
+              <button
+                type="button"
+                onClick={() => setPurchaseDate(todayStr)}
+                className="text-warning text-xs mt-1 underline"
+              >
+                Not today's date — tap to use today
+              </button>
+            )}
           </div>
         </div>
       </Card>
@@ -496,6 +511,14 @@ function Purchase() {
             </div>
 
             <div className="flex justify-between items-center pt-2 border-t border-white/5">
+              {isPaid &&
+                paidAmount.trim() !== "" &&
+                parseFloat(paidAmount) > cartTotal && (
+                  <p className="text-warning text-xs mb-2">
+                    Paid can't be more than the total. Using ₹
+                    {cartTotal.toFixed(2)}.
+                  </p>
+                )}
               <p className="text-sm font-medium">Balance Due</p>
 
               <p

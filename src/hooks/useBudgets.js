@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { currentMonthLocal } from "../utils/localDate";
 
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return currentMonthLocal();
 }
 
 export function useBudgets() {

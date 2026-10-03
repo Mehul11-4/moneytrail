@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
 export function useExpenses() {
   const { user } = useAuth();
@@ -10,10 +11,13 @@ export function useExpenses() {
   const loadExpenses = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
-      .order("date", { ascending: false });
+    const { data, error } = await fetchAllRows(() =>
+      supabase
+        .from("expenses")
+        .select("*")
+        .order("date", { ascending: false })
+        .order("id"),
+    );
 
     if (error) {
       console.error("Supabase load error:", error);

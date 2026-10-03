@@ -4,6 +4,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useBalance } from "../hooks/useBalance";
+import { todayLocal } from "../utils/localDate";
 
 function Balance() {
   const {
@@ -17,7 +18,7 @@ function Balance() {
   } = useBalance();
 
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocal());
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -36,11 +37,18 @@ function Balance() {
       return;
     }
 
-    await addBalanceEntry({
+    const { error: saveError } = await addBalanceEntry({
       amount: numericAmount,
       date,
       note: note.trim().slice(0, 200),
     });
+
+    // If saving failed, keep what the user typed and tell them —
+    // do NOT clear the form.
+    if (saveError) {
+      setError("Could not save this entry. Please try again.");
+      return;
+    }
 
     setAmount("");
     setNote("");

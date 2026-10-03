@@ -16,6 +16,7 @@ import { useLoans } from "../../hooks/useLoans";
 import { useLedger } from "../../hooks/useLedger";
 import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
+import { todayLocal } from "../../utils/localDate";
 
 const JAMA_KHARCH_CATEGORIES = [
   { slug: "capital", label: "Capital", type: "jama" },
@@ -31,7 +32,7 @@ const JAMA_KHARCH_CATEGORIES = [
 
 function BusinessDashboard() {
   const navigate = useNavigate();
-  const { sales } = useSales();
+  const { sales, allPayments } = useSales();
   const { purchases } = usePurchases();
   const { loans } = useLoans();
   const { entries } = useLedger();
@@ -39,19 +40,26 @@ function BusinessDashboard() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
-  // Sum per-PARTY balances (matching how Parties page calculates it) instead
-  // of scanning all sales directly — this guarantees the two numbers can
-  // never disagree, even if an old/orphaned sale has no linked party.
+  // Group the Udhaar rows into BILLS first (a multi-item bill shares one
+  // transactionId, and the received amount is stored on its first row only),
+  // then add up what is still unpaid per bill. Only bills of parties that
+  // still exist are counted, exactly like the Parties page.
   const toReceive = useMemo(() => {
-    return parties.reduce((sum, party) => {
-      const partyBalance = sales
-        .filter((s) => s.partyId === party.id && s.paymentMode === "Udhaar")
-        .reduce(
-          (s, sale) => s + Math.max(0, sale.total - (sale.receivedAmount || 0)),
-          0,
-        );
-      return sum + partyBalance;
-    }, 0);
+    const bills = {};
+    sales
+      .filter((s) => s.partyId && s.paymentMode === "Udhaar")
+      .forEach((s) => {
+        const key = s.transactionId || s.id;
+        if (!bills[key]) {
+          bills[key] = { partyId: s.partyId, total: 0, received: 0 };
+        }
+        bills[key].total += s.total;
+        bills[key].received += s.receivedAmount || 0;
+      });
+    const partyIds = new Set(parties.map((p) => p.id));
+    return Object.values(bills)
+      .filter((bill) => partyIds.has(bill.partyId))
+      .reduce((sum, bill) => sum + Math.max(0, bill.total - bill.received), 0);
   }, [parties, sales]);
   const toPay = useMemo(
     () =>
@@ -59,7 +67,7 @@ function BusinessDashboard() {
     [loans],
   );
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayLocal();
   const todaySalesList = useMemo(
     () => sales.filter((s) => s.date === todayStr),
     [sales, todayStr],
@@ -110,9 +118,32 @@ function BusinessDashboard() {
 
   const balanceHistory = useMemo(() => {
     const byDate = {};
+
+    // Money received AFTER the sale (later udhaar payments), per sale row
+    const saleIds = new Set(sales.map((s) => s.id));
+    const paidLater = {};
+    allPayments.forEach((p) => {
+      if (!saleIds.has(p.sale_id)) return;
+      paidLater[p.sale_id] = (paidLater[p.sale_id] || 0) + (p.amount || 0);
+    });
+
+    // On the sale date: only what was received at the time of the sale
     sales.forEach((s) => {
       byDate[s.date] = byDate[s.date] || { sale: 0, purchase: 0 };
-      byDate[s.date].sale += s.receivedAmount || 0;
+      byDate[s.date].sale += Math.max(
+        0,
+        (s.receivedAmount || 0) - (paidLater[s.id] || 0),
+      );
+    });
+
+    // Each later payment is counted on the day it was actually received
+    allPayments.forEach((p) => {
+      if (!saleIds.has(p.sale_id) || !p.payment_date) return;
+      byDate[p.payment_date] = byDate[p.payment_date] || {
+        sale: 0,
+        purchase: 0,
+      };
+      byDate[p.payment_date].sale += p.amount || 0;
     });
     purchases.forEach((p) => {
       byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
@@ -136,7 +167,7 @@ function BusinessDashboard() {
         };
       })
       .reverse();
-  }, [sales, purchases, entries]);
+  }, [sales, purchases, entries, allPayments]);
 
   const groupedHistoryByMonth = useMemo(() => {
     const groups = {};

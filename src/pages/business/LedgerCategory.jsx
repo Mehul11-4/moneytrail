@@ -7,6 +7,7 @@ import Button from "../../components/Button";
 import Input from "../../components/Input";
 import { useLedger } from "../../hooks/useLedger";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { todayLocal } from "../../utils/localDate";
 
 const LABELS = {
   capital: "Capital",
@@ -51,7 +52,7 @@ function LedgerCategory() {
   const [amount, setAmount] = usePersistedState(`ledger_${slug}_amount`, "");
   const [date, setDate] = usePersistedState(
     `ledger_${slug}_date`,
-    new Date().toISOString().split("T")[0],
+    todayLocal(),
   );
   const [note, setNote] = usePersistedState(`ledger_${slug}_note`, "");
   const [error, setError] = useState("");
@@ -90,7 +91,7 @@ function LedgerCategory() {
   const resetForm = () => {
     setAmount("");
     setNote("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(todayLocal());
     setError("");
   };
 
@@ -171,6 +172,15 @@ function LedgerCategory() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
+          {date !== todayLocal() && (
+            <button
+              type="button"
+              onClick={() => setDate(todayLocal())}
+              className="text-warning text-xs text-left underline -mt-2"
+            >
+              Not today's date — tap to use today
+            </button>
+          )}
           <Input
             label="Note (optional)"
             name="note"

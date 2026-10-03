@@ -29,6 +29,7 @@ function SaleList() {
           key,
           items: [],
           total: 0,
+          received: 0,
           paymentMode: s.paymentMode,
           customerName: s.customerName,
           date: s.date,
@@ -38,6 +39,7 @@ function SaleList() {
       }
       map[key].items.push(s);
       map[key].total += s.total;
+      map[key].received += s.receivedAmount || 0;
     });
     return order.map((k) => map[k]);
   }, [sales]);
@@ -77,17 +79,23 @@ function SaleList() {
     () => sales.reduce((sum, s) => sum + s.total, 0),
     [sales],
   );
+
+  // Balance Due = what is still unpaid on Udhaar bills (total minus the
+  // amount already received). Calculated per transaction, because for
+  // multi-item bills the received amount is stored on the first row only.
+  // This matches how the Parties page calculates "To Receive".
   const balanceDue = useMemo(
     () =>
-      sales
-        .filter((s) => s.paymentMode === "Udhaar")
-        .reduce((sum, s) => sum + s.total, 0),
-    [sales],
+      grouped
+        .filter((g) => g.paymentMode === "Udhaar")
+        .reduce((sum, g) => sum + Math.max(0, g.total - g.received), 0),
+    [grouped],
   );
 
   const handleDeleteBlock = async (block) => {
     for (const item of block.items) {
-      await deleteSale(item.id);
+      const { error } = await deleteSale(item.id);
+      if (error) break; // sale was NOT deleted, so do not put the stock back
       await restoreStockQty(item.productId, item.qtySold);
     }
     setConfirmDelete(null);

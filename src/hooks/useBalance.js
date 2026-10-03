@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
 export function useBalance() {
   const { user } = useAuth();
@@ -17,9 +18,9 @@ export function useBalance() {
       .select("*")
       .order("date", { ascending: false });
 
-    const { data: allExpenses, error: expErr } = await supabase
-      .from("expenses")
-      .select("amount");
+    const { data: allExpenses, error: expErr } = await fetchAllRows(() =>
+      supabase.from("expenses").select("amount").order("id"),
+    );
 
     if (balErr) console.error("Supabase load balance error:", balErr);
     if (expErr)
@@ -34,6 +35,8 @@ export function useBalance() {
     loadData();
   }, [loadData]);
 
+  // Returns { error } so the screen can tell the user if saving failed
+  // (same pattern as addExpense in useExpenses.js).
   const addBalanceEntry = async (entry) => {
     const { error } = await supabase.from("balance_entries").insert({
       user_id: user.id,
@@ -46,6 +49,7 @@ export function useBalance() {
     } else {
       await loadData();
     }
+    return { error };
   };
 
   const deleteBalanceEntry = async (id) => {

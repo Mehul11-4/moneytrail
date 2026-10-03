@@ -16,6 +16,7 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import { useLoans } from "../../hooks/useLoans";
 import { useLenders } from "../../hooks/useLenders";
 import { formatDate } from "../../utils/formatDate";
+import { todayLocal } from "../../utils/localDate";
 
 function LoanTaken() {
   const { loans, loading, addLoan, updateLoan, deleteLoan, toggleRepaid } =
@@ -39,7 +40,7 @@ function LoanTaken() {
 
   const [amount, setAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocal());
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,6 +57,7 @@ function LoanTaken() {
   const [editLenderPhone, setEditLenderPhone] = useState("");
   const [editLenderError, setEditLenderError] = useState("");
   const [confirmDeleteLender, setConfirmDeleteLender] = useState(false);
+  const [deleteLenderError, setDeleteLenderError] = useState(null); // { id, message }
 
   const selectedLender = useMemo(
     () => lenders.find((l) => l.id === selectedLenderId),
@@ -97,12 +99,31 @@ function LoanTaken() {
   const viewingLenderLive = viewingLender
     ? grouped.find((g) => g.id === viewingLender.id) || null
     : null;
-
+  const handleDeleteLender = async () => {
+    const lender = viewingLenderLive;
+    setConfirmDeleteLender(false);
+    setDeleteLenderError(null);
+    if (lender.totalOwed > 0) {
+      return setDeleteLenderError({
+        id: lender.id,
+        message: `You still owe ₹${lender.totalOwed.toFixed(2)} to this lender. Mark the loans as repaid before deleting.`,
+      });
+    }
+    try {
+      await deleteLender(lender.id);
+      setViewingLender(null);
+    } catch {
+      setDeleteLenderError({
+        id: lender.id,
+        message: "Could not delete this lender. Please try again.",
+      });
+    }
+  };
   const resetForm = () => {
     setSelectedLenderId("");
     setAmount("");
     setInterestRate("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(todayLocal());
     setNote("");
     setError("");
   };
@@ -516,11 +537,7 @@ function LoanTaken() {
                   {confirmDeleteLender ? (
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={async () => {
-                          await deleteLender(viewingLenderLive.id);
-                          setViewingLender(null);
-                          setConfirmDeleteLender(false);
-                        }}
+                        onClick={handleDeleteLender}
                         className="text-danger text-xs font-medium"
                       >
                         Yes
@@ -551,6 +568,12 @@ function LoanTaken() {
                   </button>
                 </div>
               </div>
+            )}
+
+            {deleteLenderError?.id === viewingLenderLive.id && (
+              <p className="text-danger text-xs mb-3">
+                {deleteLenderError.message}
+              </p>
             )}
 
             {!editingLender && (

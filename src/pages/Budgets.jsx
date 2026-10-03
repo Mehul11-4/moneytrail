@@ -6,6 +6,7 @@ import Input from "../components/Input";
 import { useBudgets } from "../hooks/useBudgets";
 import { useExpenses } from "../hooks/useExpenses";
 import { useCategories } from "../hooks/useCategories";
+import { currentMonthLocal } from "../utils/localDate";
 
 function Budgets() {
   const { budgets, setBudget, deleteBudget } = useBudgets();
@@ -16,7 +17,7 @@ function Budgets() {
   const [limit, setLimit] = useState("");
   const [error, setError] = useState("");
 
-  const currentMonthPrefix = new Date().toISOString().slice(0, 7);
+  const currentMonthPrefix = currentMonthLocal();
 
   // How much has been spent this month, per scope
   const spentByScope = useMemo(() => {

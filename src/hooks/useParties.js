@@ -40,12 +40,6 @@ export function useParties() {
     return data;
   };
 
-  const findOrCreateParty = async (name, phone) => {
-    const existing = parties.find((p) => p.phone === phone.trim());
-    if (existing) return existing;
-    return await addParty(name, phone);
-  };
-
   const updateParty = async (id, name, phone) => {
     const { error } = await supabase
       .from("parties")
@@ -71,7 +65,6 @@ export function useParties() {
     parties,
     loading,
     addParty,
-    findOrCreateParty,
     updateParty,
     deleteParty,
     loadParties,

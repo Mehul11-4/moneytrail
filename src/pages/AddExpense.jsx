@@ -6,6 +6,7 @@ import Card from "../components/Card";
 import Input from "../components/Input";
 import { useExpenses } from "../hooks/useExpenses";
 import { useCategories } from "../hooks/useCategories";
+import { todayLocal } from "../utils/localDate";
 
 function AddExpense() {
   const { addExpense } = useExpenses();
@@ -13,7 +14,7 @@ function AddExpense() {
 
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocal());
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -37,12 +38,19 @@ function AddExpense() {
       return;
     }
 
-    await addExpense({
+    const { error: saveError } = await addExpense({
       amount: numericAmount,
       category: selectedCategory,
       date,
       note: note.trim().slice(0, 200), // cap note length defensively
     });
+
+    // If saving failed, keep what the user typed and tell them —
+    // do NOT clear the form or show "Saved!".
+    if (saveError) {
+      setError("Could not save this expense. Please try again.");
+      return;
+    }
 
     // Reset form
     setAmount("");

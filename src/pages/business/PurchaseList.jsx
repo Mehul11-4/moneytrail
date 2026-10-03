@@ -19,6 +19,7 @@ function PurchaseList() {
           key,
           items: [],
           total: 0,
+          received: 0,
           paymentMode: p.paymentMode,
           partyName: p.partyName,
           date: p.date,
@@ -28,6 +29,7 @@ function PurchaseList() {
       }
       map[key].items.push(p);
       map[key].total += p.total;
+      map[key].received += p.receivedAmount || 0;
     });
     return order.map((k) => map[k]);
   }, [purchases]);
@@ -46,12 +48,17 @@ function PurchaseList() {
     () => purchases.reduce((sum, p) => sum + p.total, 0),
     [purchases],
   );
+
+  // Balance Due = what is still unpaid on Credit bills (total minus the
+  // amount already paid). Calculated per transaction, because for
+  // multi-item bills the paid amount is stored on the first row only.
+  // This matches how the Parties page calculates "To Pay".
   const balanceDue = useMemo(
     () =>
-      purchases
-        .filter((p) => p.paymentMode === "Credit")
-        .reduce((sum, p) => sum + p.total, 0),
-    [purchases],
+      grouped
+        .filter((g) => g.paymentMode === "Credit")
+        .reduce((sum, g) => sum + Math.max(0, g.total - g.received), 0),
+    [grouped],
   );
 
   const handleDeleteBlock = async (block) => {

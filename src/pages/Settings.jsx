@@ -7,72 +7,15 @@ import {
 } from "lucide-react";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import Input from "../components/Input";
 import { exportData, importData } from "../utils/backup";
 import { useAppMode } from "../context/AppModeContext";
 import ThemeToggle from "../components/ThemeToggle";
-import { useTheme } from "../context/ThemeContext";
 import AccountPanel from "../components/AccountPanel";
 import { RefreshCw } from "lucide-react";
 
 function Settings() {
   const { goToSelector } = useAppMode();
-  const { theme, setTheme } = useTheme();
   const fileInputRef = useRef(null);
-  const [emailStatus, setEmailStatus] = useState(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStatus, setPasswordStatus] = useState(null);
-
-  const handleUpdateEmail = async (e) => {
-    e.preventDefault();
-    setEmailStatus(null);
-    if (!newEmail.trim()) return;
-    const { error } = await updateEmail(newEmail.trim());
-    if (error) {
-      setEmailStatus({ type: "error", message: error.message });
-    } else {
-      setEmailStatus({
-        type: "success",
-        message:
-          "Confirmation email sent. Check your inbox to confirm the change.",
-      });
-      setNewEmail("");
-    }
-  };
-
-  const handleUpdatePassword = async (e) => {
-    e.preventDefault();
-    setPasswordStatus(null);
-
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordStatus({
-        type: "error",
-        message: "Password must be at least 6 characters.",
-      });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordStatus({ type: "error", message: "Passwords do not match." });
-      return;
-    }
-
-    <Card className="mb-4">
-      <ThemeToggle />
-    </Card>;
-
-    const { error } = await updatePassword(newPassword);
-    if (error) {
-      setPasswordStatus({ type: "error", message: error.message });
-    } else {
-      setPasswordStatus({
-        type: "success",
-        message: "Password updated successfully.",
-      });
-      setNewPassword("");
-      setConfirmPassword("");
-    }
-  };
   const [status, setStatus] = useState(null); // { type: "success" | "error", message }
   const [confirmingImport, setConfirmingImport] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -129,12 +72,15 @@ function Settings() {
       </div>
 
       <Card className="mb-4">
+        <ThemeToggle />
+      </Card>
+      <Card className="mb-4">
         <p className="text-sm font-medium mb-1">Backup Your Data</p>
         <p className="text-xs text-textSecondary mb-3">
           Backs up everything — personal expenses, budgets, balance, AND your
-          CBN CHAI business data (inventory, sales, Jama-Kharch). Download
-          regularly, especially before switching phones or clearing browser
-          data.
+          CBN CHAI business data (inventory, sales, purchases, parties, loans,
+          Jama-Kharch). Download regularly, especially before switching phones
+          or clearing browser data.
         </p>
         <Button
           variant="primary"

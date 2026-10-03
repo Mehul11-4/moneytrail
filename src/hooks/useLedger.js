@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { fetchAllRows } from "../lib/fetchAllRows";
 
 export function useLedger() {
   const { user } = useAuth();
@@ -10,10 +11,13 @@ export function useLedger() {
   const loadEntries = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("ledger_entries")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows(() =>
+      supabase
+        .from("ledger_entries")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id"),
+    );
 
     if (error) {
       console.error("Supabase load ledger error:", error);
