@@ -156,6 +156,13 @@ function LedgerCategory() {
 
       <Card className="mb-4">
         <p className="text-sm font-medium mb-3">Add {label} Entry</p>
+        {slug === "loan-taken" && (
+          <p className="text-xs text-warning mb-3">
+            Tip: record new loans on the Loan Taken page instead, so repayments
+            are tracked. Entries added here count as cash, but they cannot be
+            marked repaid.
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <Input
             label="Amount (₹)"

@@ -8,6 +8,7 @@ import { usePurchases } from "../../hooks/usePurchases";
 import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
 import { todayLocal } from "../../utils/localDate";
+import { roundMoney } from "../../utils/money";
 
 function UdhaarGiven() {
   const { sales, loading, recordPartyPayment, getPaymentHistory } = useSales();
@@ -94,11 +95,11 @@ function UdhaarGiven() {
         });
         const partyPurchases = purchaseTxOrder.map((k) => purchaseTxMap[k]);
         const toReceive = partySales.reduce(
-          (sum, tx) => sum + Math.max(0, tx.total - tx.received),
+          (sum, tx) => sum + Math.max(0, roundMoney(tx.total - tx.received)),
           0,
         );
         const toPay = partyPurchases.reduce(
-          (sum, tx) => sum + Math.max(0, tx.total - tx.received),
+          (sum, tx) => sum + Math.max(0, roundMoney(tx.total - tx.received)),
           0,
         );
         return {
@@ -109,7 +110,6 @@ function UdhaarGiven() {
           toPay,
         };
       })
-      .filter((g) => g.toReceive > 0 || g.toPay > 0 || true) // keep all parties visible, even zero-balance
       .sort((a, b) => b.toReceive + b.toPay - (a.toReceive + a.toPay));
   }, [parties, sales, purchases]);
 
@@ -647,7 +647,9 @@ function UdhaarGiven() {
                     </p>
                     <div className="flex flex-col gap-2 mb-4">
                       {viewingPartyLive.sales.map((tx) => {
-                        const balanceDue = Math.max(0, tx.total - tx.received);
+                        const balanceDue = roundMoney(
+                          Math.max(0, roundMoney(tx.total - tx.received)),
+                        );
                         const isPaid = balanceDue <= 0;
                         const saleIds = tx.items.map((i) => i.id);
                         return (
@@ -747,7 +749,10 @@ function UdhaarGiven() {
                     </p>
                     <div className="flex flex-col gap-2">
                       {viewingPartyLive.purchases.map((tx) => {
-                        const balanceDue = Math.max(0, tx.total - tx.received);
+                        const balanceDue = Math.max(
+                          0,
+                          roundMoney(tx.total - tx.received),
+                        );
                         const isPaid = balanceDue <= 0;
                         return (
                           <Card key={tx.key} className="!p-2.5">

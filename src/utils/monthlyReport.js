@@ -1,6 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
 const MONTH_NAMES = [
   "January",
   "February",
@@ -23,6 +20,10 @@ export async function generateMonthlyPDF({
   purchases,
   ledgerEntries,
 }) {
+  // Load the PDF libraries only when a PDF is actually requested.
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
+
   const monthLabel = MONTH_NAMES[month];
   const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
 

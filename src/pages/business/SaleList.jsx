@@ -4,12 +4,14 @@ import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
 import { useProducts } from "../../hooks/useProducts";
 import { formatDate } from "../../utils/formatDate";
+import { roundMoney } from "../../utils/money";
 
 function SaleList() {
-  const { sales, loading, deleteSale } = useSales();
+  const { sales, loading, deleteSales } = useSales();
   const { restoreStockQty } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
@@ -88,14 +90,26 @@ function SaleList() {
     () =>
       grouped
         .filter((g) => g.paymentMode === "Udhaar")
-        .reduce((sum, g) => sum + Math.max(0, g.total - g.received), 0),
+        .reduce(
+          (sum, g) => sum + Math.max(0, roundMoney(g.total - g.received)),
+          0,
+        ),
     [grouped],
   );
 
   const handleDeleteBlock = async (block) => {
+    setDeleteError("");
+    // Delete every row of the bill in ONE request: all or nothing.
+    const { error } = await deleteSales(block.items.map((item) => item.id));
+    if (error) {
+      // Nothing was deleted, so the stock must stay as it is.
+      setDeleteError(
+        "Could not delete this bill. Nothing was changed. Please try again.",
+      );
+      setConfirmDelete(null);
+      return;
+    }
     for (const item of block.items) {
-      const { error } = await deleteSale(item.id);
-      if (error) break; // sale was NOT deleted, so do not put the stock back
       await restoreStockQty(item.productId, item.qtySold);
     }
     setConfirmDelete(null);
@@ -171,6 +185,7 @@ function SaleList() {
         </>
       )}
 
+      {deleteError && <p className="text-danger text-sm mb-3">{deleteError}</p>}
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
       {!loading && filtered.length === 0 && (
         <p className="text-textSecondary text-sm">No sales recorded yet.</p>

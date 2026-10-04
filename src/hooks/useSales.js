@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { todayLocal } from "../utils/localDate";
 import { fetchAllRows } from "../lib/fetchAllRows";
-
+import { roundMoney } from "../utils/money";
 export function useSales() {
   const { user } = useAuth();
   const [sales, setSales] = useState([]);
@@ -141,6 +141,18 @@ export function useSales() {
     return { error };
   };
 
+  // Deletes several sale rows in ONE database request, so it either
+  // deletes all of them or none of them.
+  const deleteSales = async (ids) => {
+    const { error } = await supabase.from("sales").delete().in("id", ids);
+    if (error) {
+      console.error("Supabase delete sales error:", error);
+    } else {
+      await loadSales();
+    }
+    return { error };
+  };
+
   const recordPayment = async (saleId, additionalAmount, paymentDate) => {
     const { data: sale, error: fetchErr } = await supabase
       .from("sales")
@@ -187,7 +199,7 @@ export function useSales() {
   const recordPartyPayment = async (partyId, totalAmount, paymentDate) => {
     const outstandingSales = sales
       .filter((s) => s.partyId === partyId && s.paymentMode === "Udhaar")
-      .filter((s) => s.total - (s.receivedAmount || 0) > 0)
+      .filter((s) => roundMoney(s.total - (s.receivedAmount || 0)) > 0)
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
     let remaining = totalAmount;
@@ -221,6 +233,7 @@ export function useSales() {
     loading,
     recordSale,
     recordMultiSale,
+    deleteSales,
     deleteSale,
     recordPayment,
     recordPartyPayment,

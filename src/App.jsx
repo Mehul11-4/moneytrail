@@ -14,7 +14,7 @@ import Auth from "./pages/Auth";
 import AddExpense from "./pages/AddExpense";
 import ExpenseList from "./pages/ExpenseList";
 import Balance from "./pages/Balance";
-import Dashboard from "./pages/Dashboard";
+import { lazy, Suspense } from "react";
 import Budgets from "./pages/Budgets";
 import Settings from "./pages/Settings";
 import BottomNav from "./components/BottomNav";
@@ -35,6 +35,10 @@ import BusinessTopBar from "./components/BusinessTopBar";
 import PersonalTopBar from "./components/PersonalTopBar";
 
 import ModeSwitcher from "./components/ModeSwitcher";
+
+// The personal Dashboard is the only page that uses the charts library,
+// so it is loaded only when it is opened. This keeps the first load smaller.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 function PageWrapper({ children }) {
   return (
@@ -84,7 +88,15 @@ function AnimatedRoutes() {
           path="/dashboard"
           element={
             <PageWrapper>
-              <Dashboard />
+              <Suspense
+                fallback={
+                  <div className="min-h-screen bg-background flex items-center justify-center">
+                    <p className="text-textSecondary text-sm">Loading...</p>
+                  </div>
+                }
+              >
+                <Dashboard />
+              </Suspense>
             </PageWrapper>
           }
         />

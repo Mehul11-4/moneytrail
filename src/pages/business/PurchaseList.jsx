@@ -3,11 +3,12 @@ import { ShoppingCart, Search, Trash2 } from "lucide-react";
 import Card from "../../components/Card";
 import { usePurchases } from "../../hooks/usePurchases";
 import { formatDate } from "../../utils/formatDate";
-
+import { roundMoney } from "../../utils/money";
 function PurchaseList() {
-  const { purchases, loading, deletePurchase } = usePurchases();
+  const { purchases, loading, deletePurchases } = usePurchases();
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const grouped = useMemo(() => {
     const map = {};
@@ -57,12 +58,21 @@ function PurchaseList() {
     () =>
       grouped
         .filter((g) => g.paymentMode === "Credit")
-        .reduce((sum, g) => sum + Math.max(0, g.total - g.received), 0),
+        .reduce(
+          (sum, g) => sum + Math.max(0, roundMoney(g.total - g.received)),
+          0,
+        ),
     [grouped],
   );
 
   const handleDeleteBlock = async (block) => {
-    for (const item of block.items) await deletePurchase(item);
+    setDeleteError("");
+    const { error } = await deletePurchases(block.items);
+    if (error) {
+      setDeleteError(
+        "Could not delete this bill. Nothing was changed. Please try again.",
+      );
+    }
     setConfirmDelete(null);
   };
 
@@ -103,6 +113,7 @@ function PurchaseList() {
         </div>
       )}
 
+      {deleteError && <p className="text-danger text-sm mb-3">{deleteError}</p>}
       {loading && <p className="text-textSecondary text-sm">Loading...</p>}
       {!loading && filtered.length === 0 && (
         <p className="text-textSecondary text-sm">No purchases recorded yet.</p>

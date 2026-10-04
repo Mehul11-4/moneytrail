@@ -10,7 +10,7 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { useParties } from "../../hooks/useParties";
 import { Users, Search as SearchIcon, X as XIcon } from "lucide-react";
 import { todayLocal } from "../../utils/localDate";
-
+import { roundMoney } from "../../utils/money";
 const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 function Counter() {
@@ -94,7 +94,7 @@ function Counter() {
   }, [isReceived, receivedAmount, cartTotal]);
 
   const balanceDue = useMemo(
-    () => Math.max(0, cartTotal - finalReceivedAmount),
+    () => Math.max(0, roundMoney(cartTotal - finalReceivedAmount)),
     [cartTotal, finalReceivedAmount],
   );
 

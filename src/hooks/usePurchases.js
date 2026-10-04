@@ -4,12 +4,29 @@ import { useAuth } from "../context/AuthContext";
 import { useProducts } from "./useProducts";
 import { todayLocal } from "../utils/localDate";
 import { fetchAllRows } from "../lib/fetchAllRows";
-
+import { roundMoney } from "../utils/money";
 export function usePurchases({ onProductsChanged } = {}) {
   const { user } = useAuth();
   const { addProduct, loadProducts } = useProducts();
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [purchasePayments, setPurchasePayments] = useState([]);
+
+  const loadPurchasePayments = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await fetchAllRows(() =>
+      supabase.from("purchase_payments").select("*").order("id"),
+    );
+    if (error) {
+      console.error("Supabase load purchase payments error:", error);
+    } else {
+      setPurchasePayments(data || []);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadPurchasePayments();
+  }, [loadPurchasePayments]);
 
   const getNextInvoiceNo = async () => {
     const { data } = await supabase
@@ -229,7 +246,22 @@ export function usePurchases({ onProductsChanged } = {}) {
       console.error("Supabase record purchase payment error:", error);
       throw error;
     }
+
+    // Log this payment with its date, so Balance History can place it correctly.
+    if (paymentDate) {
+      const { error: logErr } = await supabase
+        .from("purchase_payments")
+        .insert({
+          user_id: user.id,
+          purchase_id: purchaseId,
+          amount: additionalAmount,
+          payment_date: paymentDate,
+        });
+      if (logErr) console.error("Supabase log purchase payment error:", logErr);
+    }
+
     await loadPurchases();
+    await loadPurchasePayments();
   };
 
   // Apply ONE lump payment across a party's outstanding Credit purchases,
@@ -241,7 +273,7 @@ export function usePurchases({ onProductsChanged } = {}) {
   ) => {
     const outstanding = purchases
       .filter((p) => p.partyId === partyId && p.paymentMode === "Credit")
-      .filter((p) => p.total - (p.receivedAmount || 0) > 0)
+      .filter((p) => roundMoney(p.total - (p.receivedAmount || 0)) > 0)
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
     let remaining = totalAmount;
@@ -281,14 +313,48 @@ export function usePurchases({ onProductsChanged } = {}) {
     return { error: rpcErr || null };
   };
 
+  // Deletes all rows of a purchase bill in ONE request (all or nothing),
+  // and only then puts the stock back.
+  const deletePurchases = async (items) => {
+    const { error } = await supabase
+      .from("purchases")
+      .delete()
+      .in(
+        "id",
+        items.map((p) => p.id),
+      );
+    if (error) {
+      console.error("Supabase delete purchases error:", error);
+      return { error };
+    }
+
+    for (const purchase of items) {
+      const { error: rpcErr } = await supabase.rpc("adjust_stock", {
+        product_id: purchase.productId,
+        delta: -purchase.qty,
+      });
+      if (rpcErr)
+        console.error(
+          "Supabase reverse stock on purchase delete error:",
+          rpcErr,
+        );
+    }
+
+    await loadPurchases();
+    await loadProducts();
+    return { error: null };
+  };
+
   return {
     purchases,
+    purchasePayments,
     loading,
     recordPurchase,
     recordMultiPurchase,
     recordPurchasePayment,
     recordPartyPurchasePayment,
     deletePurchase,
+    deletePurchases,
   };
 }
 

@@ -10,6 +10,7 @@ import { useParties } from "../../hooks/useParties";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { Users, Search as SearchIcon, X as XIcon } from "lucide-react";
 import { todayLocal } from "../../utils/localDate";
+import { roundMoney } from "../../utils/money";
 
 const paymentTypes = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
@@ -21,6 +22,12 @@ function Purchase() {
   const { parties, addParty } = useParties();
 
   const todayStr = todayLocal();
+
+  // Static items (Chai, Coffee) have no stock or pack size, so they can't be purchased.
+  const purchasableProducts = useMemo(
+    () => products.filter((p) => !p.is_static),
+    [products],
+  );
 
   const nextInvoiceNo = useMemo(
     () => Math.max(0, ...purchases.map((p) => p.invoiceNo || 0)) + 1,
@@ -169,7 +176,7 @@ function Purchase() {
   // Balance
   // -----------------------------
   const balanceDue = useMemo(
-    () => Math.max(0, cartTotal - finalPaidAmount),
+    () => Math.max(0, roundMoney(cartTotal - finalPaidAmount)),
     [cartTotal, finalPaidAmount],
   );
 
@@ -467,7 +474,7 @@ function Purchase() {
         <BilledItemsTable
           items={items}
           setItems={setItems}
-          products={products}
+          products={purchasableProducts}
           unitMode
         />
       </Card>

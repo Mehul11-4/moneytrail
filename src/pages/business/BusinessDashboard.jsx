@@ -17,6 +17,7 @@ import { useLedger } from "../../hooks/useLedger";
 import { useParties } from "../../hooks/useParties";
 import { formatDate } from "../../utils/formatDate";
 import { todayLocal } from "../../utils/localDate";
+import { roundMoney } from "../../utils/money";
 
 const JAMA_KHARCH_CATEGORIES = [
   { slug: "capital", label: "Capital", type: "jama" },
@@ -33,7 +34,7 @@ const JAMA_KHARCH_CATEGORIES = [
 function BusinessDashboard() {
   const navigate = useNavigate();
   const { sales, allPayments } = useSales();
-  const { purchases } = usePurchases();
+  const { purchases, purchasePayments } = usePurchases();
   const { loans } = useLoans();
   const { entries } = useLedger();
   const { parties } = useParties();
@@ -61,11 +62,30 @@ function BusinessDashboard() {
       .filter((bill) => partyIds.has(bill.partyId))
       .reduce((sum, bill) => sum + Math.max(0, bill.total - bill.received), 0);
   }, [parties, sales]);
-  const toPay = useMemo(
-    () =>
-      loans.filter((l) => !l.is_repaid).reduce((sum, l) => sum + l.amount, 0),
-    [loans],
-  );
+  // To Pay = unpaid loans + what you still owe suppliers on Credit purchases.
+  // Supplier dues are worked out per BILL and only for parties that still exist,
+  // so this always matches the Parties page.
+  const toPay = useMemo(() => {
+    const loansDue = loans
+      .filter((l) => !l.is_repaid)
+      .reduce((sum, l) => sum + l.amount, 0);
+
+    const partyIds = new Set(parties.map((p) => p.id));
+    const bills = {};
+    purchases.forEach((p) => {
+      if (p.paymentMode !== "Credit" || !partyIds.has(p.partyId)) return;
+      const key = p.transactionId || p.id;
+      if (!bills[key]) bills[key] = { total: 0, received: 0 };
+      bills[key].total += p.total;
+      bills[key].received += p.receivedAmount || 0;
+    });
+    const supplierDue = Object.values(bills).reduce(
+      (sum, b) => sum + Math.max(0, roundMoney(b.total - b.received)),
+      0,
+    );
+
+    return loansDue + supplierDue;
+  }, [loans, purchases, parties]);
 
   const todayStr = todayLocal();
   const todaySalesList = useMemo(
@@ -92,6 +112,14 @@ function BusinessDashboard() {
   // PLUS Sale (only money actually received, not the full sale value).
   // Outgoing: Loan Interest, Rent, Electricity, Water Bill, Other Expenses
   // (full ledger amounts) PLUS Purchase (only money actually paid out).
+  // Loans taken on the Loan Taken page that are NOT yet repaid are cash you are
+  // holding. Repaid loans cancel out (money came in, then went out).
+  const loansInHand = useMemo(
+    () =>
+      loans.filter((l) => !l.is_repaid).reduce((sum, l) => sum + l.amount, 0),
+    [loans],
+  );
+
   const cashIncoming = useMemo(() => {
     const ledgerIn = entries
       .filter((e) => e.type === "jama")
@@ -100,8 +128,8 @@ function BusinessDashboard() {
       (s, sale) => s + (sale.receivedAmount || 0),
       0,
     );
-    return ledgerIn + salesIn;
-  }, [entries, sales]);
+    return ledgerIn + salesIn + loansInHand;
+  }, [entries, sales, loansInHand]);
 
   const cashOutgoing = useMemo(() => {
     const ledgerOut = entries
@@ -145,15 +173,44 @@ function BusinessDashboard() {
       };
       byDate[p.payment_date].sale += p.amount || 0;
     });
+    // Money paid to suppliers AFTER the purchase (later Settle Payments), per purchase row
+    const purchaseIds = new Set(purchases.map((p) => p.id));
+    const supplierPaidLater = {};
+    purchasePayments.forEach((pp) => {
+      if (!purchaseIds.has(pp.purchase_id)) return;
+      supplierPaidLater[pp.purchase_id] =
+        (supplierPaidLater[pp.purchase_id] || 0) + (pp.amount || 0);
+    });
+
+    // On the purchase date: only what was paid at the time of purchase
     purchases.forEach((p) => {
       byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
-      byDate[p.date].purchase += p.receivedAmount || 0;
+      byDate[p.date].purchase += Math.max(
+        0,
+        (p.receivedAmount || 0) - (supplierPaidLater[p.id] || 0),
+      );
+    });
+
+    // Each later payment is counted on the day it was actually paid
+    purchasePayments.forEach((pp) => {
+      if (!purchaseIds.has(pp.purchase_id) || !pp.payment_date) return;
+      byDate[pp.payment_date] = byDate[pp.payment_date] || {
+        sale: 0,
+        purchase: 0,
+      };
+      byDate[pp.payment_date].purchase += pp.amount || 0;
     });
     entries.forEach((e) => {
       byDate[e.date] = byDate[e.date] || { sale: 0, purchase: 0 };
       if (e.type === "jama") byDate[e.date].sale += e.amount;
       else byDate[e.date].purchase += e.amount;
     });
+    loans
+      .filter((l) => !l.is_repaid)
+      .forEach((l) => {
+        byDate[l.date] = byDate[l.date] || { sale: 0, purchase: 0 };
+        byDate[l.date].sale += l.amount;
+      });
     const sortedDates = Object.keys(byDate).sort();
     let running = 0;
     return sortedDates
@@ -167,7 +224,7 @@ function BusinessDashboard() {
         };
       })
       .reverse();
-  }, [sales, purchases, entries, allPayments]);
+  }, [sales, purchases, entries, allPayments, loans, purchasePayments]);
 
   const groupedHistoryByMonth = useMemo(() => {
     const groups = {};
@@ -240,6 +297,12 @@ function BusinessDashboard() {
         <p className="text-[10px] text-textSecondary/70 mt-1">
           Capital, Loans, Sale, Purchase & all expenses
         </p>
+        {loansInHand > 0 && (
+          <p className="text-[10px] text-textSecondary/70">
+            Includes ₹{loansInHand.toFixed(2)} of unpaid loans from the Loan
+            Taken page
+          </p>
+        )}
       </Card>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -259,6 +322,9 @@ function BusinessDashboard() {
           <p className="text-xs text-textSecondary mb-1">To Pay</p>
           <p className="text-xl font-heading font-bold text-danger">
             ₹{toPay.toFixed(2)}
+          </p>
+          <p className="text-[10px] text-textSecondary/70 mt-1">
+            Loans + supplier dues
           </p>
         </Card>
       </div>

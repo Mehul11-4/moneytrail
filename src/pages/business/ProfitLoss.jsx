@@ -156,9 +156,12 @@ function ProfitLoss() {
         </div>
       </div>
       <p className="text-[10px] text-textSecondary/70 mt-4 mb-5">
-        Cash-basis: stock purchases count as an expense immediately. Income
-        counts only actual sales — Capital, loans, and borrowed money are
-        excluded.
+        How this is calculated: Income is the full value of all sales, including
+        unpaid (Udhaar) sales. Expenses are the full value of all stock
+        purchases, including unpaid Credit purchases, plus your Kharch entries.
+        Stock you still hold is not subtracted, so profit looks lower while you
+        keep stock. Capital, loans and borrowed money are not counted. For money
+        actually in hand, see Cash in Hand on the Dashboard.
       </p>
 
       {/* Monthly PDF export */}
