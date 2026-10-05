@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, Mail, Lock } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/Button";
 import Input from "../components/Input";

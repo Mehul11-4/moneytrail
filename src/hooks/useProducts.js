@@ -46,23 +46,28 @@ export function useProducts() {
     }
 
     const pricePerQty = product.unitPurchasePrice / product.qtyPerUnit;
-    const { error } = await supabase.from("products").insert({
-      user_id: user.id,
-      section: product.section || "Other",
-      name: product.name,
-      is_static: false,
-      unit_label: product.unitLabel,
-      qty_per_unit: product.qtyPerUnit,
-      unit_purchase_price: product.unitPurchasePrice,
-      price_per_qty: pricePerQty,
-      mrp_per_qty: product.mrpPerQty,
-      stock_qty: product.qtyPerUnit * product.unitsPurchased,
-    });
+    const { data: created, error } = await supabase
+      .from("products")
+      .insert({
+        user_id: user.id,
+        section: product.section || "Other",
+        name: product.name,
+        is_static: false,
+        unit_label: product.unitLabel,
+        qty_per_unit: product.qtyPerUnit,
+        unit_purchase_price: product.unitPurchasePrice,
+        price_per_qty: pricePerQty,
+        mrp_per_qty: product.mrpPerQty,
+        stock_qty: product.qtyPerUnit * product.unitsPurchased,
+      })
+      .select()
+      .single();
     if (error) {
       console.error("Supabase add product error:", error);
     } else {
       await loadProducts();
     }
+    return { data: created || null, error };
   };
 
   const updateProduct = async (id, updates) => {
@@ -71,6 +76,11 @@ export function useProducts() {
       .select("*")
       .eq("id", id)
       .single();
+
+    if (!existing) {
+      console.error("Update product: product not found.");
+      return;
+    }
 
     if (existing.is_static) {
       const { error } = await supabase
@@ -118,6 +128,10 @@ export function useProducts() {
       .select("qty_per_unit")
       .eq("id", id)
       .single();
+    if (!existing) {
+      console.error("Restock product: product not found.");
+      return;
+    }
     const addedQty = unitsAdded * existing.qty_per_unit;
 
     const { error } = await supabase.rpc("adjust_stock", {

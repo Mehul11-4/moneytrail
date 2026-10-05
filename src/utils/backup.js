@@ -7,6 +7,7 @@ import { fetchAllRows } from "../lib/fetchAllRows";
 // Listed CHILD tables first (rows that point to other rows), so a restore
 // always deletes them before the rows they point to.
 const BUSINESS_TABLES = [
+  ["purchasePayments", "purchase_payments"],
   ["udhaarPayments", "udhaar_payments"],
   ["loans", "loans"],
   ["purchases", "purchases"],
@@ -56,8 +57,11 @@ async function buildFullBackup() {
     fetchAll("product_types"),
   ]);
 
+  const purchasePayments = await fetchAll("purchase_payments");
+
   return {
     version: 5,
+    purchasePayments,
     exportedAt: new Date().toISOString(),
     expenses,
     budgets,
@@ -144,9 +148,12 @@ async function buildBusinessBackup() {
     fetchAll("product_types"),
   ]);
 
+  const purchasePayments = await fetchAll("purchase_payments");
+
   return {
     version: 2,
     scope: "business",
+    purchasePayments,
     exportedAt: new Date().toISOString(),
     products,
     sales,
@@ -214,10 +221,15 @@ async function insertBusinessData(data, userId) {
     product_id: productIds,
     party_id: partyIds,
   });
-  await insertWithIdMap("purchases", data.purchases, userId, {
-    product_id: productIds,
-    party_id: partyIds,
-  });
+  const purchaseIds = await insertWithIdMap(
+    "purchases",
+    data.purchases,
+    userId,
+    {
+      product_id: productIds,
+      party_id: partyIds,
+    },
+  );
   await insertWithIdMap("loans", data.loans, userId, {
     lender_id: lenderIds,
   });
@@ -226,6 +238,9 @@ async function insertBusinessData(data, userId) {
   });
   await insertWithIdMap("udhaar_payments", data.udhaarPayments, userId, {
     sale_id: saleIds,
+  });
+  await insertWithIdMap("purchase_payments", data.purchasePayments, userId, {
+    purchase_id: purchaseIds,
   });
 }
 
@@ -269,7 +284,11 @@ async function insertWithIdMap(table, rows, userId, links = {}) {
 
 async function clearTablesPresentIn(data, tables) {
   for (const [key, table] of tables) {
-    if (Array.isArray(data[key])) await clearTable(table);
+    if (
+      Array.isArray(data[key]) ||
+      (key === "purchasePayments" && Array.isArray(data.purchases))
+    )
+      await clearTable(table);
   }
 }
 

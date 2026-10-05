@@ -69,7 +69,6 @@ export function usePurchases({ onProductsChanged } = {}) {
     qty,
     rate,
     unitRate,
-    purchaseDate,
   }) => {
     let finalProductId = productId;
     let productName;
@@ -77,7 +76,7 @@ export function usePurchases({ onProductsChanged } = {}) {
     if (isNewProduct) {
       // `rate` is now already the PER-UNIT price (e.g. ₹140 per pack) —
       // no multiplication needed, unlike the old buggy version.
-      await addProduct({
+      const { data: created, error: addErr } = await addProduct({
         name: newProductDetails.name,
         section: newProductDetails.section,
         unitLabel: newProductDetails.unitLabel,
@@ -86,12 +85,9 @@ export function usePurchases({ onProductsChanged } = {}) {
         unitsPurchased: qty / newProductDetails.qtyPerUnit,
         mrpPerQty: newProductDetails.mrpPerQty,
       });
-      const { data: created } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      if (addErr || !created) {
+        throw addErr || new Error("Could not create the new product.");
+      }
       finalProductId = created.id;
       productName = created.name;
     } else {
@@ -134,6 +130,19 @@ export function usePurchases({ onProductsChanged } = {}) {
     return { productId: finalProductId, productName };
   };
 
+  // If saving a purchase fails AFTER stock was added, take that stock back out.
+  const undoStock = async (list) => {
+    for (const s of list) {
+      const { error } = await supabase.rpc("adjust_stock", {
+        product_id: s.productId,
+        delta: -s.qty,
+      });
+      if (error) console.error("Supabase undo stock error:", error);
+    }
+    await loadProducts();
+    if (onProductsChanged) await onProductsChanged();
+  };
+
   const recordPurchase = async (item, meta) => {
     const now = new Date();
     const finalDate = meta.purchaseDate || todayLocal();
@@ -169,6 +178,7 @@ export function usePurchases({ onProductsChanged } = {}) {
     });
     if (error) {
       console.error("Supabase record purchase error:", error);
+      await undoStock([{ productId, qty: item.qty }]);
       throw error;
     }
     await loadPurchases();
@@ -185,11 +195,13 @@ export function usePurchases({ onProductsChanged } = {}) {
     const invoiceNo = await getNextInvoiceNo();
 
     const rows = [];
+    const stockAdded = [];
     for (const [i, item] of items.entries()) {
       const { productId, productName } = await recordPurchaseItem({
         ...item,
         purchaseDate: finalDate,
       });
+      stockAdded.push({ productId, qty: item.qty });
       rows.push({
         user_id: user.id,
         invoice_no: invoiceNo,
@@ -215,6 +227,7 @@ export function usePurchases({ onProductsChanged } = {}) {
     const { error } = await supabase.from("purchases").insert(rows);
     if (error) {
       console.error("Supabase record multi-purchase error:", error);
+      await undoStock(stockAdded);
       throw error;
     }
     await loadPurchases();

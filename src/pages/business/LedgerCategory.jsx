@@ -41,13 +41,8 @@ function LedgerCategory() {
   const subtypeName =
     slug === "other-jama" || slug === "other-kharch" ? "Other" : label;
 
-  const {
-    entries,
-    loading,
-    addLedgerEntry,
-    deleteLedgerEntry,
-    updateLedgerEntry,
-  } = useLedger();
+  const { entries, addLedgerEntry, deleteLedgerEntry, updateLedgerEntry } =
+    useLedger();
 
   const [amount, setAmount] = usePersistedState(`ledger_${slug}_amount`, "");
   const [date, setDate] = usePersistedState(

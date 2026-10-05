@@ -47,10 +47,7 @@ function Counter() {
   const [newPartyName, setNewPartyName] = useState("");
   const [newPartyPhone, setNewPartyPhone] = useState("");
   const [newPartyError, setNewPartyError] = useState("");
-  const [billingName, setBillingName] = usePersistedState(
-    "cbn_cart_billingName",
-    "",
-  );
+  const [, setBillingName] = usePersistedState("cbn_cart_billingName", "");
   const [isReceived, setIsReceived] = usePersistedState(
     "cbn_cart_isReceived",
     true,
