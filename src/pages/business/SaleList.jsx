@@ -176,10 +176,6 @@ function SaleList() {
       // New product: use that product's current rate and cost price.
       const rate = productChanged ? product.mrp_per_qty : old.mrpAtSale;
       const total = roundMoney(qty * rate);
-      if (isUdhaar && total < old.receivedAmount)
-        return setEditError(
-          `${old.productName}: new amount ₹${total.toFixed(2)} is less than the ₹${old.receivedAmount.toFixed(2)} already received.`,
-        );
 
       edits.push({
         id: old.id,
@@ -194,6 +190,18 @@ function SaleList() {
           : old.pricePerQtyAtSale,
         total,
       });
+    }
+
+    // Udhaar: the new bill total cannot go below what is already received.
+    // The received amount belongs to the WHOLE bill (it is stored on one row),
+    // so it is compared with the bill total, not with a single row.
+    if (isUdhaar) {
+      const newBillTotal = roundMoney(edits.reduce((s, e) => s + e.total, 0));
+      const receivedSoFar = roundMoney(editingBlock.received);
+      if (newBillTotal < receivedSoFar)
+        return setEditError(
+          `New bill total ₹${newBillTotal.toFixed(2)} is less than the ₹${receivedSoFar.toFixed(2)} already received.`,
+        );
     }
 
     // Stock check: stock needed per product must fit what is in stock
