@@ -12,7 +12,6 @@ import { todayLocal } from "../../utils/localDate";
 const LABELS = {
   capital: "Capital",
   "loan-taken": "Loan Taken",
-  borrowed: "Borrowed (Friends/Family)",
   "loan-interest": "Loan Interest",
   rent: "Rent",
   electricity: "Electricity",
@@ -24,7 +23,6 @@ const LABELS = {
 const TYPE_OF = {
   capital: "jama",
   "loan-taken": "jama",
-  borrowed: "jama",
   "other-jama": "jama",
   "loan-interest": "kharch",
   rent: "kharch",

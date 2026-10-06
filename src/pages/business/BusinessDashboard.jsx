@@ -22,7 +22,6 @@ import { roundMoney } from "../../utils/money";
 const JAMA_KHARCH_CATEGORIES = [
   { slug: "capital", label: "Capital", type: "jama" },
   { slug: "loan-taken", label: "Loan Taken", type: "jama" },
-  { slug: "borrowed", label: "Borrowed", type: "jama" },
   { slug: "other-jama", label: "Other Income", type: "jama" },
   { slug: "loan-interest", label: "Loan Interest", type: "kharch" },
   { slug: "rent", label: "Rent", type: "kharch" },

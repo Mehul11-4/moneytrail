@@ -153,6 +153,44 @@ export function useSales() {
     return { error };
   };
 
+  // Edits ONE bill (every row of it). `edits` holds the new values per row:
+  // { id, productId, productName, qtySold, mrpAtSale, pricePerQtyAtSale, total }
+  // and `date` is the new date for the whole bill.
+  const updateSaleBlock = async (items, edits, date) => {
+    const newBillTotal = roundMoney(edits.reduce((s, e) => s + e.total, 0));
+    const isUdhaar = items[0].paymentMode === "Udhaar";
+    // The row that carries the received amount of the bill
+    const holderId = (items.find((i) => i.receivedAmount > 0) || items[0]).id;
+
+    for (const e of edits) {
+      const patch = {
+        product_id: e.productId,
+        product_name: e.productName,
+        qty_sold: e.qtySold,
+        mrp_at_sale: e.mrpAtSale,
+        price_per_qty_at_sale: e.pricePerQtyAtSale,
+        total: e.total,
+        date,
+      };
+      // Cash/UPI bills are always paid in full, so the received amount must
+      // follow the new total. Udhaar bills keep the money already received.
+      if (!isUdhaar) {
+        patch.received_amount = e.id === holderId ? newBillTotal : 0;
+      }
+      const { error } = await supabase
+        .from("sales")
+        .update(patch)
+        .eq("id", e.id);
+      if (error) {
+        console.error("Supabase update sale error:", error);
+        await loadSales();
+        return { error };
+      }
+    }
+    await loadSales();
+    return { error: null };
+  };
+
   const recordPayment = async (saleId, additionalAmount, paymentDate) => {
     const { data: sale, error: fetchErr } = await supabase
       .from("sales")
@@ -235,6 +273,7 @@ export function useSales() {
     recordMultiSale,
     deleteSales,
     deleteSale,
+    updateSaleBlock,
     recordPayment,
     recordPartyPayment,
     getPaymentHistory,

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FileText, Search, Trash2 } from "lucide-react";
+import { FileText, Search, Trash2, Pencil, X } from "lucide-react";
 import Card from "../../components/Card";
 import { useSales } from "../../hooks/useSales";
 import { useProducts } from "../../hooks/useProducts";
@@ -7,13 +7,19 @@ import { formatDate } from "../../utils/formatDate";
 import { roundMoney } from "../../utils/money";
 
 function SaleList() {
-  const { sales, loading, deleteSales } = useSales();
-  const { restoreStockQty } = useProducts();
+  const { sales, loading, deleteSales, updateSaleBlock } = useSales();
+  const { products, restoreStockQty, deductStock } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+
+  const [editingKey, setEditingKey] = useState(null);
+  const [editDate, setEditDate] = useState("");
+  const [editRows, setEditRows] = useState([]);
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const uniqueProducts = useMemo(() => {
     const names = new Set(sales.map((s) => s.productName));
@@ -113,6 +119,132 @@ function SaleList() {
       await restoreStockQty(item.productId, item.qtySold);
     }
     setConfirmDelete(null);
+  };
+
+  // The bill being edited, always the FULL bill (not the filtered view)
+  const editingBlock = useMemo(
+    () => grouped.find((g) => g.key === editingKey) || null,
+    [grouped, editingKey],
+  );
+
+  const startEdit = (block) => {
+    const original = grouped.find((g) => g.key === block.key);
+    if (!original) return;
+    setEditingKey(original.key);
+    setEditDate(original.date);
+    setEditRows(
+      original.items.map((i) => ({
+        id: i.id,
+        productId: i.productId || "",
+        qty: String(i.qtySold),
+      })),
+    );
+    setEditError("");
+  };
+
+  const closeEdit = () => {
+    if (editSaving) return;
+    setEditingKey(null);
+    setEditError("");
+  };
+
+  const updateEditRow = (index, field, value) => {
+    setEditRows((rows) =>
+      rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  const handleSaveEdit = async () => {
+    if (editSaving || !editingBlock) return;
+    setEditError("");
+    if (!editDate) return setEditError("Select a date.");
+
+    const isUdhaar = editingBlock.paymentMode === "Udhaar";
+    const edits = [];
+    for (const row of editRows) {
+      const old = editingBlock.items.find((i) => i.id === row.id);
+      const qty = parseFloat(row.qty);
+      if (!qty || qty <= 0)
+        return setEditError("Enter a valid quantity for every item.");
+
+      const product = products.find((p) => p.id === row.productId);
+      const productChanged = row.productId !== (old.productId || "");
+      if (productChanged && !product)
+        return setEditError("Select a product for every item.");
+
+      // Same product: keep the rate and cost it was sold at.
+      // New product: use that product's current rate and cost price.
+      const rate = productChanged ? product.mrp_per_qty : old.mrpAtSale;
+      const total = roundMoney(qty * rate);
+      if (isUdhaar && total < old.receivedAmount)
+        return setEditError(
+          `${old.productName}: new amount ₹${total.toFixed(2)} is less than the ₹${old.receivedAmount.toFixed(2)} already received.`,
+        );
+
+      edits.push({
+        id: old.id,
+        old,
+        product,
+        productId: row.productId || null,
+        productName: productChanged ? product.name : old.productName,
+        qtySold: qty,
+        mrpAtSale: rate,
+        pricePerQtyAtSale: productChanged
+          ? product.price_per_qty || 0
+          : old.pricePerQtyAtSale,
+        total,
+      });
+    }
+
+    // Stock check: stock needed per product must fit what is in stock
+    // PLUS what this bill had already taken from it.
+    const need = {};
+    const alreadyTaken = {};
+    for (const e of edits) {
+      if (!e.product || e.product.is_static) continue;
+      need[e.productId] = (need[e.productId] || 0) + e.qtySold;
+    }
+    for (const i of editingBlock.items) {
+      alreadyTaken[i.productId] = (alreadyTaken[i.productId] || 0) + i.qtySold;
+    }
+    for (const [productId, qty] of Object.entries(need)) {
+      const product = products.find((p) => p.id === productId);
+      const available = product.stock_qty + (alreadyTaken[productId] || 0);
+      if (qty > available)
+        return setEditError(
+          `Only ${available} pcs of ${product.name} in stock.`,
+        );
+    }
+
+    setEditSaving(true);
+    try {
+      const { error } = await updateSaleBlock(
+        editingBlock.items,
+        edits,
+        editDate,
+      );
+      if (error) {
+        setEditError("Could not save the changes. Please check and try again.");
+        return;
+      }
+      // Bill is saved, now fix the stock: give back the old quantity,
+      // take the new one.
+      for (const e of edits) {
+        if (e.old.productId === e.productId) {
+          if (!e.product) continue; // product no longer exists
+          const diff = e.qtySold - e.old.qtySold;
+          if (diff > 0)
+            await deductStock(e.productId, diff, e.product.is_static);
+          else if (diff < 0) await restoreStockQty(e.productId, -diff);
+        } else {
+          await restoreStockQty(e.old.productId, e.old.qtySold);
+          await deductStock(e.productId, e.qtySold, e.product.is_static);
+        }
+      }
+      setEditingKey(null);
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   return (
@@ -235,12 +367,20 @@ function SaleList() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setConfirmDelete(block.key)}
-                      className="text-textSecondary hover:text-danger"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => startEdit(block)}
+                        className="text-textSecondary hover:text-primary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(block.key)}
+                        className="text-textSecondary hover:text-danger"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -274,6 +414,95 @@ function SaleList() {
           );
         })}
       </div>
+
+      {editingBlock && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[80] flex items-end"
+          onClick={closeEdit}
+        >
+          <div
+            className="w-full bg-surface border-t border-white/10 rounded-t-2xl p-4 pb-8 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <p className="font-heading font-bold text-lg">Edit Sale</p>
+              <button onClick={closeEdit} className="text-textSecondary">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-[10px] text-textSecondary mb-1">Date</p>
+            <input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="w-full bg-background border border-border rounded-control px-3 py-2 text-sm mb-4 focus:outline-none focus:border-primary"
+            />
+
+            <div className="flex flex-col gap-3 mb-4">
+              {editRows.map((row, index) => (
+                <div key={row.id} className="grid grid-cols-12 gap-2">
+                  <div className="col-span-8">
+                    <p className="text-[10px] text-textSecondary mb-1">Item</p>
+                    <select
+                      value={row.productId}
+                      onChange={(e) =>
+                        updateEditRow(index, "productId", e.target.value)
+                      }
+                      className="w-full bg-background border border-border rounded-control px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                    >
+                      {!row.productId && (
+                        <option value="">Select product</option>
+                      )}
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-4">
+                    <p className="text-[10px] text-textSecondary mb-1">Qty</p>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.qty}
+                      onChange={(e) =>
+                        updateEditRow(index, "qty", e.target.value)
+                      }
+                      className="w-full bg-background border border-border rounded-control px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-textSecondary mb-3">
+              Rate stays the same unless you change the item. Changing the item
+              uses that item's current rate.
+            </p>
+            {editError && (
+              <p className="text-danger text-sm mb-3">{editError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveEdit}
+                disabled={editSaving}
+                className="flex-1 bg-primary text-background rounded-control py-2.5 text-sm font-medium disabled:opacity-50"
+              >
+                {editSaving ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                onClick={closeEdit}
+                className="flex-1 border border-border rounded-control py-2.5 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
