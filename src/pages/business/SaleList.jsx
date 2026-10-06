@@ -198,7 +198,12 @@ function SaleList() {
     if (isUdhaar) {
       const newBillTotal = roundMoney(edits.reduce((s, e) => s + e.total, 0));
       const receivedSoFar = roundMoney(editingBlock.received);
-      if (newBillTotal < receivedSoFar)
+      // Only block an edit that LOWERS the bill below the received money.
+      // If the bill was already over-received before, raising it is allowed.
+      if (
+        newBillTotal < receivedSoFar &&
+        newBillTotal < roundMoney(editingBlock.total)
+      )
         return setEditError(
           `New bill total ₹${newBillTotal.toFixed(2)} is less than the ₹${receivedSoFar.toFixed(2)} already received.`,
         );
