@@ -74,16 +74,45 @@ function LoanTaken() {
 
   // Every permanent Lender account, with its own linked loans and live balance.
   const grouped = useMemo(() => {
-    return lenders
-      .map((lender) => {
-        const lenderLoans = loans.filter((l) => l.lender_id === lender.id);
-        const totalOwed = lenderLoans
-          .filter((e) => !e.is_repaid)
-          .reduce((s, e) => s + e.amount, 0);
-        return { ...lender, entries: lenderLoans, totalOwed };
-      })
-      .sort((a, b) => b.totalOwed - a.totalOwed);
-  }, [lenders, loans]);
+    const linked = lenders.map((lender) => {
+      const lenderLoans = loans.filter((l) => l.lender_id === lender.id);
+      const totalOwed = lenderLoans
+        .filter((e) => !e.is_repaid)
+        .reduce((s, e) => s + e.amount, 0);
+      return { ...lender, entries: lenderLoans, totalOwed };
+    });
+
+    // Loans whose lender is missing (never linked, or the lender was deleted)
+    // would be invisible here, yet the Dashboard still counts them in Cash in
+    // Hand and To Pay. Show them under their saved lender name so they can be
+    // marked repaid, edited or deleted.
+    const unlinked = {};
+    if (!lendersLoading) {
+      const lenderIds = new Set(lenders.map((l) => l.id));
+      loans
+        .filter((l) => !l.lender_id || !lenderIds.has(l.lender_id))
+        .forEach((l) => {
+          const name = (l.lender_name || "").trim() || "Unknown lender";
+          const key = `unlinked:${name.toLowerCase()}`;
+          if (!unlinked[key]) {
+            unlinked[key] = {
+              id: key,
+              name,
+              phone: null,
+              entries: [],
+              totalOwed: 0,
+              isUnlinked: true,
+            };
+          }
+          unlinked[key].entries.push(l);
+          if (!l.is_repaid) unlinked[key].totalOwed += l.amount;
+        });
+    }
+
+    return [...linked, ...Object.values(unlinked)].sort(
+      (a, b) => b.totalOwed - a.totalOwed,
+    );
+  }, [lenders, loans, lendersLoading]);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return grouped;
@@ -524,38 +553,42 @@ function LoanTaken() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingLender(true);
-                      setEditLenderName(viewingLenderLive.name);
-                      setEditLenderPhone(viewingLenderLive.phone || "");
-                    }}
-                    className="text-textSecondary hover:text-primary"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  {confirmDeleteLender ? (
-                    <div className="flex items-center gap-1">
+                  {!viewingLenderLive.isUnlinked && (
+                    <>
                       <button
-                        onClick={handleDeleteLender}
-                        className="text-danger text-xs font-medium"
+                        onClick={() => {
+                          setEditingLender(true);
+                          setEditLenderName(viewingLenderLive.name);
+                          setEditLenderPhone(viewingLenderLive.phone || "");
+                        }}
+                        className="text-textSecondary hover:text-primary"
                       >
-                        Yes
+                        <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setConfirmDeleteLender(false)}
-                        className="text-textSecondary text-xs"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDeleteLender(true)}
-                      className="text-textSecondary hover:text-danger"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      {confirmDeleteLender ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={handleDeleteLender}
+                            className="text-danger text-xs font-medium"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteLender(false)}
+                            className="text-textSecondary text-xs"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteLender(true)}
+                          className="text-textSecondary hover:text-danger"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
                   )}
                   <button
                     onClick={() => {
