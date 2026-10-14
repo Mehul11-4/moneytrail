@@ -32,8 +32,8 @@ const JAMA_KHARCH_CATEGORIES = [
 
 function BusinessDashboard() {
   const navigate = useNavigate();
-  const { sales, allPayments } = useSales();
-  const { purchases, purchasePayments } = usePurchases();
+  const { sales } = useSales();
+  const { purchases } = usePurchases();
   const { loans } = useLoans();
   const { entries } = useLedger();
   const { parties } = useParties();
@@ -142,88 +142,20 @@ function BusinessDashboard() {
   }, [entries, purchases]);
 
   const cashInHand = cashIncoming - cashOutgoing;
-
+  // Sales History: har din ki total sales (bill ka poora total, chahe paisa
+  // mila ho ya udhaar ho). Naya din upar. `closingBalance` naam neeche JSX
+  // mein use ho raha hai, isliye wahi rakha hai. Ab ismein us din ki total
+  // sales hai, cash balance nahi.
   const balanceHistory = useMemo(() => {
     const byDate = {};
-
-    // Money received AFTER the sale (later udhaar payments), per sale row
-    const saleIds = new Set(sales.map((s) => s.id));
-    const paidLater = {};
-    allPayments.forEach((p) => {
-      if (!saleIds.has(p.sale_id)) return;
-      paidLater[p.sale_id] = (paidLater[p.sale_id] || 0) + (p.amount || 0);
-    });
-
-    // On the sale date: only what was received at the time of the sale
     sales.forEach((s) => {
-      byDate[s.date] = byDate[s.date] || { sale: 0, purchase: 0 };
-      byDate[s.date].sale += Math.max(
-        0,
-        (s.receivedAmount || 0) - (paidLater[s.id] || 0),
-      );
+      byDate[s.date] = (byDate[s.date] || 0) + s.total;
     });
-
-    // Each later payment is counted on the day it was actually received
-    allPayments.forEach((p) => {
-      if (!saleIds.has(p.sale_id) || !p.payment_date) return;
-      byDate[p.payment_date] = byDate[p.payment_date] || {
-        sale: 0,
-        purchase: 0,
-      };
-      byDate[p.payment_date].sale += p.amount || 0;
-    });
-    // Money paid to suppliers AFTER the purchase (later Settle Payments), per purchase row
-    const purchaseIds = new Set(purchases.map((p) => p.id));
-    const supplierPaidLater = {};
-    purchasePayments.forEach((pp) => {
-      if (!purchaseIds.has(pp.purchase_id)) return;
-      supplierPaidLater[pp.purchase_id] =
-        (supplierPaidLater[pp.purchase_id] || 0) + (pp.amount || 0);
-    });
-
-    // On the purchase date: only what was paid at the time of purchase
-    purchases.forEach((p) => {
-      byDate[p.date] = byDate[p.date] || { sale: 0, purchase: 0 };
-      byDate[p.date].purchase += Math.max(
-        0,
-        (p.receivedAmount || 0) - (supplierPaidLater[p.id] || 0),
-      );
-    });
-
-    // Each later payment is counted on the day it was actually paid
-    purchasePayments.forEach((pp) => {
-      if (!purchaseIds.has(pp.purchase_id) || !pp.payment_date) return;
-      byDate[pp.payment_date] = byDate[pp.payment_date] || {
-        sale: 0,
-        purchase: 0,
-      };
-      byDate[pp.payment_date].purchase += pp.amount || 0;
-    });
-    entries.forEach((e) => {
-      byDate[e.date] = byDate[e.date] || { sale: 0, purchase: 0 };
-      if (e.type === "jama") byDate[e.date].sale += e.amount;
-      else byDate[e.date].purchase += e.amount;
-    });
-    loans
-      .filter((l) => !l.is_repaid)
-      .forEach((l) => {
-        byDate[l.date] = byDate[l.date] || { sale: 0, purchase: 0 };
-        byDate[l.date].sale += l.amount;
-      });
-    const sortedDates = Object.keys(byDate).sort();
-    let running = 0;
-    return sortedDates
-      .map((date) => {
-        running += byDate[date].sale - byDate[date].purchase;
-        return {
-          date,
-          sale: byDate[date].sale,
-          purchase: byDate[date].purchase,
-          closingBalance: running,
-        };
-      })
+    return Object.keys(byDate)
+      .sort()
+      .map((date) => ({ date, closingBalance: byDate[date] }))
       .reverse();
-  }, [sales, purchases, entries, allPayments, loans, purchasePayments]);
+  }, [sales]);
 
   const groupedHistoryByMonth = useMemo(() => {
     const groups = {};
@@ -367,7 +299,7 @@ function BusinessDashboard() {
       {balanceHistory.length > 0 && (
         <div className="mb-2">
           <p className="text-sm font-medium text-textSecondary mb-2">
-            Balance History
+            Sales History
           </p>
 
           {!showAllHistory ? (
