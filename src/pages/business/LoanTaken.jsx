@@ -317,14 +317,14 @@ function LoanTaken() {
 
       {showLenderPicker && (
         <div
-          className="fixed inset-0 bg-black/70 z-[90] flex items-end"
+          className="fixed inset-0 bg-black/70 z-[90] flex items-start"
           onClick={() => {
             setShowLenderPicker(false);
             setShowNewLenderForm(false);
           }}
         >
           <div
-            className="w-full bg-surface border-t border-white/10 rounded-t-2xl p-4 max-h-[75vh] flex flex-col"
+            className="w-full bg-surface border-b border-white/10 rounded-b-2xl p-4 max-h-[45vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
