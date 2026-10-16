@@ -6,8 +6,8 @@ import Input from "../components/Input";
 import Card from "../components/Card";
 
 function Auth() {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState("login"); // "login" | "signup"
+  const { signIn, signUp, resetPassword } = useAuth();
+  const [mode, setMode] = useState("login"); // "login" | "signup" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,6 +45,72 @@ function Auth() {
     }
     setLoading(false);
   };
+
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    if (!email.trim()) {
+      setError("Enter your email.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await resetPassword(email.trim());
+    if (error) {
+      setError(error.message);
+    } else {
+      setMessage(
+        "If this email is registered, a reset link has been sent. Check your inbox and spam folder.",
+      );
+    }
+    setLoading(false);
+  };
+
+  if (mode === "forgot") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="flex items-center gap-3 mb-8">
+          <Wallet className="w-10 h-10 text-primary" />
+          <h1 className="text-3xl font-heading font-bold text-textPrimary">
+            MoneyTrail
+          </h1>
+        </div>
+
+        <Card className="w-full max-w-sm">
+          <p className="text-lg font-heading font-bold mb-4">Reset Password</p>
+
+          <form onSubmit={handleForgot} className="flex flex-col gap-3">
+            <Input
+              label="Email"
+              name="forgotEmail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+
+            {error && <p className="text-danger text-sm">{error}</p>}
+            {message && <p className="text-success text-sm">{message}</p>}
+
+            <Button type="submit" variant="primary" disabled={loading}>
+              {loading ? "Please wait..." : "Send Reset Link"}
+            </Button>
+          </form>
+
+          <button
+            onClick={() => {
+              setMode("login");
+              setError("");
+              setMessage("");
+            }}
+            className="text-textSecondary text-sm mt-4 text-center w-full"
+          >
+            Back to Log In
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -89,6 +155,19 @@ function Auth() {
                 : "Sign Up"}
           </Button>
         </form>
+
+        {mode === "login" && (
+          <button
+            onClick={() => {
+              setMode("forgot");
+              setError("");
+              setMessage("");
+            }}
+            className="text-primary text-sm mt-4 text-center w-full"
+          >
+            Forgot password?
+          </button>
+        )}
 
         <button
           onClick={() => {

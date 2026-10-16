@@ -10,6 +10,7 @@ import { AppModeProvider, useAppMode } from "./context/AppModeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 
 import AddExpense from "./pages/AddExpense";
 import ExpenseList from "./pages/ExpenseList";
@@ -246,7 +247,7 @@ function AppShell() {
 }
 
 function AuthGate() {
-  const { session, loading } = useAuth();
+  const { session, loading, isRecovery } = useAuth();
 
   if (loading) {
     return (
@@ -254,6 +255,9 @@ function AuthGate() {
         <p className="text-textSecondary text-sm">Loading...</p>
       </div>
     );
+  }
+  if (session && isRecovery) {
+    return <ResetPassword />;
   }
 
   if (!session) {

@@ -6,6 +6,11 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  // True only when the user opened a "reset password" link from their email.
+  // Checked from the link itself AND from Supabase's PASSWORD_RECOVERY event.
+  const [isRecovery, setIsRecovery] = useState(() =>
+    window.location.hash.includes("type=recovery"),
+  );
 
   useEffect(() => {
     // Check if already logged in (e.g. returning visit)
@@ -16,7 +21,9 @@ export function AuthProvider({ children }) {
 
     // Listen for login/logout events happening anywhere in the app
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        if (event === "PASSWORD_RECOVERY") setIsRecovery(true);
+        if (event === "SIGNED_OUT") setIsRecovery(false);
         setSession(session);
       },
     );
@@ -34,6 +41,7 @@ export function AuthProvider({ children }) {
       email,
       password,
     });
+    if (!error) setIsRecovery(false);
     return { error };
   };
 
@@ -52,6 +60,15 @@ export function AuthProvider({ children }) {
     return { error };
   };
 
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    return { error };
+  };
+
+  const finishRecovery = () => setIsRecovery(false);
+
   return (
     <AuthContext.Provider
       value={{
@@ -63,6 +80,9 @@ export function AuthProvider({ children }) {
         signOut,
         updateEmail,
         updatePassword,
+        resetPassword,
+        isRecovery,
+        finishRecovery,
       }}
     >
       {children}
