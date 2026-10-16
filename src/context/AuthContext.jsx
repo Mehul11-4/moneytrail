@@ -3,14 +3,17 @@ import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = createContext();
 
+// Read ONCE, as soon as this file loads, before Supabase cleans the link out of
+// the address bar. Waiting until React's first render is too late.
+const OPENED_FROM_RECOVERY_LINK =
+  window.location.hash.includes("type=recovery");
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   // True only when the user opened a "reset password" link from their email.
   // Checked from the link itself AND from Supabase's PASSWORD_RECOVERY event.
-  const [isRecovery, setIsRecovery] = useState(() =>
-    window.location.hash.includes("type=recovery"),
-  );
+  const [isRecovery, setIsRecovery] = useState(OPENED_FROM_RECOVERY_LINK);
 
   useEffect(() => {
     // Check if already logged in (e.g. returning visit)
